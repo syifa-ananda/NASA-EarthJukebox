@@ -1,0 +1,48 @@
+{
+  "datasets": [
+    {
+      "id": "sst",
+      "title": "Global Sea Surface Temperature",
+      "description": "A map of the world's oceans showing how warm the surface water is, and how ocean currents carry that heat around the globe. The warmest water forms a wide band around the equator, and cooler water lies toward the poles. The pattern changes slowly and smoothly, shifting north and south with the seasons.",
+      "colorMeaning": "red and orange = warm water, blue = cold water",
+      "source": "TODO",
+      "credit": "NASA/SVS",
+      "features": "sst/features.json",
+      "video": "sst/video.mp4",
+      "mock": true
+    },
+    {
+      "id": "nightlights",
+      "title": "Change in Night Lights 2012–2023",
+      "description": "A view of Earth at night, seen from space, showing where city and town lights shine. Most of the land is dark, with bright clusters where people live. From 2012 to 2023 many areas grow brighter and new lights appear, showing where cities and towns have expanded.",
+      "colorMeaning": "bright yellow and white = strong night lights, dark = little or no light",
+      "source": "TODO",
+      "credit": "NASA/SVS",
+      "features": "nightlights/features.json",
+      "video": "nightlights/video.mp4",
+      "mock": true
+    },
+    {
+      "id": "lightning",
+      "title": "Lightning Events Detected from the ISS 2017–2023",
+      "description": "Lightning flashes recorded by an instrument on the International Space Station between 2017 and 2023. Each flash appears as a brief bright spot. Flashes come in sudden bursts, mostly over land in the tropics, and jump from place to place as storms form and fade.",
+      "colorMeaning": "bright white and blue spots = lightning flashes, dark = no lightning",
+      "source": "TODO",
+      "credit": "NASA/SVS",
+      "features": "lightning/features.json",
+      "video": "lightning/video.mp4",
+      "mock": true
+    },
+    {
+      "id": "co2",
+      "title": "DYAMOND Global Carbon Dioxide",
+      "description": "A computer model of carbon dioxide in Earth's atmosphere. Plumes of carbon dioxide rise from sources on the ground and are carried by the wind, mostly from west to east. Over time the overall amount of carbon dioxide keeps rising.",
+      "colorMeaning": "bright yellow and white = more carbon dioxide, dark = less carbon dioxide",
+      "source": "TODO",
+      "credit": "NASA/SVS",
+      "features": "co2/features.json",
+      "video": "co2/video.mp4",
+      "mock": true
+    }
+  ]
+}
