@@ -11,11 +11,12 @@ export default {
     'tense, clashing note creeps in. The drone drifts from left to right as the wind ' +
     'carries the plumes east.',
   valueLabel: 'carbon dioxide',
+  valueWords: { low: 'less carbon dioxide', high: 'more carbon dioxide' },
+  legendExtra: 'A thicker drone means carbon dioxide is spread over more of the map.',
 
   rootMidi: 36,              // C2: deep
   octaves: 1,                // drone pitch moves slowly within one octave
   scales: { warm: 'minorPentatonic', cool: 'minorPentatonic' },   // urgent
-  weights: { density: 1.5 },
 
   mapping: {
     ramp: 2.5,
@@ -26,6 +27,7 @@ export default {
     filterHz: [250, 2200],
     volumeDb: [-10, 0],
     reverb: { decay: 7, wet: 0.4 },
+    trimDb: 9,
   },
 
   layers: [

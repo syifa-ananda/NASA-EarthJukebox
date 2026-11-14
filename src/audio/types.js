@@ -92,6 +92,7 @@
  * @property {number} maxHits                Max percussion hits per frame.
  * @property {number} hitWindow              Seconds over which a frame's hits are spread.
  * @property {{decay: number, wet: number}} reverb
+ * @property {number} trimDb                 Whole-preset level trim so presets sound equally loud.
  */
 
 /**
@@ -121,6 +122,8 @@
  * @property {string} name               Display name.
  * @property {string} soundDescription   Plain-language description of the sound, for screen readers.
  * @property {string} valueLabel         What `value` means, e.g. 'sea surface temperature'.
+ * @property {{low: string, high: string}} valueWords  Legend wording, e.g. 'cooler water' / 'warmer water'.
+ * @property {string} [legendExtra]      Extra sentence for the audio legend.
  * @property {number} rootMidi           Lowest note of the scale range (MIDI).
  * @property {number} octaves            Octaves the pitch can span.
  * @property {{warm: string, cool: string}} scales  Scale names from scales.js.
@@ -129,6 +132,23 @@
  * @property {Sources} sources
  * @property {Mapping} mapping
  * @property {LayerSpec[]} layers
+ */
+
+/**
+ * Robust range of one field in a features.json (5th-95th percentile).
+ * @typedef {object} ValueRange
+ * @property {number} lo
+ * @property {number} hi
+ * @property {boolean} widened  True if the real range was narrower than the minimum span.
+ */
+
+/**
+ * Output of analyzeRanges(file): how each field is rescaled to 0-1.
+ * @typedef {object} Ranges
+ * @property {string|null} dataset
+ * @property {number} frameCount
+ * @property {Record<'brightness'|'warmth'|'density'|'motion'|'value', ValueRange>} fields
+ * @property {ValueRange} grid  Range of all grid cells (used for probe pitch).
  */
 
 /**
@@ -157,7 +177,7 @@
  * @typedef {object} ProbeResult
  * @property {number} x       Column used (0-31).
  * @property {number} y       Row used (0-15).
- * @property {number} value   Grid value 0-1 at that cell.
+ * @property {number} value   Raw grid value 0-1 at that cell (not normalized).
  * @property {number} pan     -1 to 1.
  * @property {number} midi    Note played.
  * @property {string} note    Note name, e.g. 'E4'.

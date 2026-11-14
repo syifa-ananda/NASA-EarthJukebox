@@ -12,10 +12,10 @@ export default {
     'cooler water lower ones. When the currents move faster the pads swell louder, ' +
     'and a few soft bell notes drift on top.',
   valueLabel: 'water temperature',
+  valueWords: { low: 'cooler water', high: 'warmer water' },
 
   rootMidi: 43,            // G2: low and warm
   scales: { warm: 'majorPentatonic', cool: 'minorPentatonic' },
-  weights: { motion: 4 },  // currents change slowly; exaggerate so swells are audible
 
   mapping: {
     ramp: 1.5,
@@ -25,8 +25,8 @@ export default {
     maxVoices: 4,
     filterHz: [400, 3500],
     tremolo: [0, 0.15],
-    modeThreshold: 0.36,   // mock warmth sits at 0.31-0.39; retune with real frames
     reverb: { decay: 6, wet: 0.45 },
+    trimDb: -1,
   },
 
   layers: [

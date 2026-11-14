@@ -32,6 +32,11 @@
     #probe canvas { width: 100%; max-width: 640px; height: auto; image-rendering: pixelated; }
     #params { font-size: 0.85rem; white-space: pre-wrap; margin: 0.5rem 0 0; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .warning { border-left: 4px solid #c77700; padding: 4px 10px; background: color-mix(in srgb, #c77700 12%, transparent); }
+    video { width: 100%; max-width: 640px; background: #000; border-radius: 4px; }
+    table { border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+    th, td { border-bottom: 1px solid var(--line); padding: 2px 10px 2px 0; text-align: left; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -51,6 +56,10 @@
       <select id="preset"></select>
     </div>
     <p id="sound-description"></p>
+    <div class="row">
+      <button id="legend" type="button">Play legend</button>
+    </div>
+    <p id="legend-out" aria-live="polite"></p>
   </section>
 
   <section aria-labelledby="h-mock">
@@ -71,6 +80,41 @@
       <output id="frame-out" for="frame">0</output>
     </div>
     <p id="mock-status" class="muted"></p>
+    <label><input id="normalize" type="checkbox" checked> Normalize to this file's ranges (5th&ndash;95th percentile)</label>
+    <details>
+      <summary>Ranges found in this file</summary>
+      <table>
+        <thead><tr><th scope="col">Field</th><th scope="col">Low</th><th scope="col">High</th><th scope="col">Note</th></tr></thead>
+        <tbody id="ranges"></tbody>
+      </table>
+    </details>
+  </section>
+
+  <section aria-labelledby="h-video">
+    <h2 id="h-video">Video sync</h2>
+    <p id="video-status" class="muted"></p>
+    <div class="row">
+      <label for="video-file">Use a local video file (stays on this computer)</label>
+      <input id="video-file" type="file" accept="video/*">
+    </div>
+    <video id="video" controls playsinline muted aria-label="Dataset video"></video>
+    <div class="row">
+      <button id="sync" type="button" aria-pressed="false">Sync audio to video</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-record">
+    <h2 id="h-record">Record full pass</h2>
+    <p id="record-mock" class="warning" hidden><strong>Mock data:</strong> this dataset is not real yet.
+      Use this recording for practice only; record the final version once real data is in.</p>
+    <p class="muted">Plays the selected dataset from the first to the last frame at 1x, records everything you hear,
+      then downloads it. Nothing is saved in the repo.</p>
+    <div class="row">
+      <button id="record" type="button">Record full pass</button>
+      <button id="record-cancel" type="button" hidden>Cancel recording</button>
+      <a id="record-link" hidden></a>
+    </div>
+    <p id="record-status" aria-live="polite"></p>
   </section>
 
   <section aria-labelledby="h-features">

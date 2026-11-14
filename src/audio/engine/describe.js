@@ -38,3 +38,20 @@ export function describeFrame(features, preset, prev) {
 
   return parts.join(', ');
 }
+
+/**
+ * Text version of the audio legend (playLegend), e.g. "Low notes mean cooler
+ * water, high notes mean warmer water. ..."
+ * @param {import('../types.js').Preset} preset
+ */
+export function legendText(preset) {
+  const label = preset?.valueLabel ?? 'value';
+  const low = preset?.valueWords?.low ?? `lower ${label}`;
+  const high = preset?.valueWords?.high ?? `higher ${label}`;
+  const parts = [
+    `Low notes mean ${low}, high notes mean ${high}.`,
+    'Sounds on the left come from the west of the map, sounds on the right from the east.',
+  ];
+  if (preset?.legendExtra) parts.push(preset.legendExtra);
+  return parts.join(' ');
+}
