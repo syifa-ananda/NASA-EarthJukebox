@@ -4,10 +4,15 @@
 These let the audio and UI work start before the real SVS media is analysed.
 Output: public/data/<id>/features.json for sst, nightlights, lightning, co2.
 
-Usage:  python3 scripts/make_mock.py
+Datasets marked "mock": false in public/data/index.json already have real data
+and are skipped, so this never overwrites analyze.py output.
+
+Usage:  python3 scripts/make_mock.py          # mock datasets only
+        python3 scripts/make_mock.py --all    # overwrite real data too
 """
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +25,9 @@ ROWS, COLS = 16, 32
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "public" / "data"
 
+sys.path.insert(0, str(ROOT / "src" / "analysis"))
+from features import flashes_of, frame_record, motion_of, pan_of  # noqa: E402
+
 # Cell coordinates: row 0 = north/top, col 0 = west/left.
 RR, CC = np.mgrid[0:ROWS, 0:COLS].astype(float)
 LAT = 1.0 - 2.0 * (RR + 0.5) / ROWS          # +1 north ... -1 south
@@ -29,53 +37,6 @@ XPOS = 2.0 * (CC + 0.5) / COLS - 1.0         # -1 left ... +1 right
 def blob(cx, cy, radius):
     """Gaussian bump centred on (col cx, row cy)."""
     return np.exp(-((CC - cx) ** 2 + (RR - cy) ** 2) / (2.0 * radius ** 2))
-
-
-# ---------------------------------------------------------------------------
-# Shared feature extraction (the real analyze.py will use the same definitions)
-# ---------------------------------------------------------------------------
-
-def pan_of(grid):
-    """Horizontal centre of activity: weighted by how far cells sit above the median."""
-    w = np.clip(grid - np.median(grid), 0.0, None)
-    if w.sum() < 1e-9:
-        return 0.0
-    return float((w * XPOS).sum() / w.sum())
-
-
-def motion_of(grid, prev):
-    """Mean absolute change from the previous frame, scaled into 0-1."""
-    if prev is None:
-        return 0.0
-    return float(np.clip(np.abs(grid - prev).mean() * 8.0, 0.0, 1.0))
-
-
-def flashes_of(grid, prev, threshold=0.6):
-    """Number of cells that just became bright (capped at 16)."""
-    if prev is None:
-        new = grid >= threshold
-    else:
-        new = (grid >= threshold) & (prev < threshold)
-    return int(min(16, new.sum()))
-
-
-def r3(x):
-    return round(float(x), 3) + 0.0   # + 0.0 turns -0.0 into 0.0
-
-
-def frame_record(t, grid, brightness, warmth, density, pan, motion, flashes):
-    grid = np.clip(grid, 0.0, 1.0)
-    return {
-        "t": t,
-        "brightness": r3(np.clip(brightness, 0, 1)),
-        "warmth": r3(np.clip(warmth, 0, 1)),
-        "density": r3(np.clip(density, 0, 1)),
-        "pan": r3(np.clip(pan, -1, 1)),
-        "motion": r3(np.clip(motion, 0, 1)),
-        "flashes": int(flashes),
-        "value": r3(grid.mean()),
-        "grid": [[round(float(v), 2) + 0.0 for v in row] for row in grid],
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -215,10 +176,23 @@ DATASETS = [
 ]
 
 
+def real_datasets():
+    """Ids marked "mock": false in index.json."""
+    index = OUT_DIR / "index.json"
+    if not index.is_file():
+        return set()
+    items = json.loads(index.read_text(encoding="utf-8")).get("datasets", [])
+    return {d["id"] for d in items if d.get("mock") is False}
+
+
 def main():
+    skip = set() if "--all" in sys.argv[1:] else real_datasets()
     rng = np.random.default_rng(SEED)
     for ds_id, title, maker in DATASETS:
-        frames = maker(rng)
+        frames = maker(rng)          # always run, so the random sequence stays the same
+        if ds_id in skip:
+            print(f"skip  public/data/{ds_id}/features.json (real data; use --all to overwrite)")
+            continue
         doc = {
             "dataset": ds_id,
             "title": title,
