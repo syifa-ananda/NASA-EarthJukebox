@@ -1,9 +1,7 @@
-// Placeholder audio engine so the UI can be built and demoed before
-// Person 2's Tone.js engine lands. Uses only the built-in Web Audio API.
-// It is intentionally simple: one pentatonic note per frame, a click for
-// flashes, and a short blip for probe(). See ./audio.js for the interface.
-
-const DEFAULT_GRID = { cols: 32, rows: 16 };
+// Fallback audio engine, used only if Person 2's Tone.js engine fails to load.
+// Uses only the built-in Web Audio API. It is intentionally simple: one
+// pentatonic note per frame, a click for flashes, and a short blip for
+// probe() / preview(). See ./audio.js for the interface.
 
 // C major pentatonic, two octaves (MIDI note numbers).
 const SCALE = [60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84];
@@ -20,6 +18,7 @@ let master = null;
 let playing = false;
 let wave = 'sine';
 let volume = 0.7;
+let lastFrame = null;
 
 function midiToHz(m) {
   return 440 * 2 ** ((m - 69) / 12);
@@ -86,7 +85,8 @@ export async function load(datasetId) {
   wave = PRESET_WAVES[datasetId] ?? 'sine';
 }
 
-export function update(frame) {
+export function update(frame, _opts) {
+  if (frame) lastFrame = frame;
   if (!playing || !ctx || !frame) return;
   const gain = 0.08 + 0.3 * (frame.brightness ?? 0.5);
   tone({ value: frame.value, pan: frame.pan, gain });
@@ -113,10 +113,22 @@ export function setRate(_r) {
   // The stub plays one note per frame, so rate is handled by the UI clock.
 }
 
-export function probe(x, y, value, grid = DEFAULT_GRID) {
-  if (!ctx) return;
-  const pan = grid.cols > 1 ? (x / (grid.cols - 1)) * 2 - 1 : 0;
-  tone({ value, pan, gain: 0.3, dur: 0.25, type: 'sine' });
+export function preview(frame, _opts) {
+  if (frame) lastFrame = frame;
+  if (ctx && frame) tone({ value: frame.value, pan: frame.pan, gain: 0.3, dur: 0.3 });
+}
+
+export function probe(x, y) {
+  const grid = lastFrame?.grid;
+  const rows = grid?.length || 16;
+  const cols = grid?.[0]?.length || 32;
+  const cx = Math.min(cols - 1, Math.max(0, Math.floor(x)));
+  const cy = Math.min(rows - 1, Math.max(0, Math.floor(y)));
+  const value = grid ? grid[cy][cx] : 0.5;
+  const pan = ((cx + 0.5) / cols) * 2 - 1;
+  const midi = noteFor(value);
+  if (ctx) tone({ value, pan, gain: 0.3, dur: 0.25, type: 'sine' });
+  return { x: cx, y: cy, value, pan, midi, note: null, sounded: !!ctx };
 }
 
 export function stop() {
