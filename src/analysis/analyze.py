@@ -39,9 +39,15 @@ ice, brownish deserts, dark forests) that is identical in every year. The base
 is estimated per pixel: take the darkest value each pixel ever has, then apply a
 morphological opening (min filter, then max filter) larger than a city cluster,
 which removes the lights and keeps the smooth land texture. Light is luminance
-above that base. Neutral grey pixels are ignored: every light pixel is yellowish,
-while snow, ice and shaded relief are grey, and that is where the base estimate
-is least reliable. All years use the same fixed scale, so growth is preserved.
+above that base. Only yellowish pixels count: every light pixel is yellowish, while
+snow, ice and shaded relief are grey or blue-grey, and that is where the base
+estimate is least reliable. A pixel must be saturated enough (not neutral grey)
+AND have red at least 3 levels above blue. The second test removes the blue-grey
+edges of ice shelves, coastlines and mountain ridges in Antarctica and the Arctic
+that the opening leaves behind, enough of the barely-warm bare rock of the McMurdo
+Dry Valleys to keep that cell at 0, and some dull, trendless texture over northern
+forests. Bright city lights are far above this margin. All years use the same
+fixed scale, so growth is preserved.
 
 How lightning is measured (events mode)
 ---------------------------------------
@@ -105,6 +111,7 @@ DATASETS = {
         "base_kernel": 31,        # px; opening size, larger than a city cluster (~3 deg)
         "noise_margin": 3,        # luminance units ignored above the base (compression noise)
         "min_saturation": 0.12,   # lights are yellowish (>= 0.19); snow/ice/relief are grey
+        "min_red_over_blue": 3,   # R - B; lights are yellow, ice edges blue-grey, bare rock barely warm
         "land_min_lum": 2.5,      # darkest-ever luminance above this = land (ocean is 0-1)
         "land_cell_share": 0.02,  # a grid cell counts as land if >= 2% of it is land
         "light_scale": 30.0,      # luminance units of light that map to 1.0 (fixed, all years)
@@ -411,7 +418,9 @@ def analyze_light(cfg, frame_paths):
         mx = rgb.max(-1)
         sat = (mx - rgb.min(-1)) / np.maximum(mx, 1e-6)
         light = np.clip(luminance(rgb) - base - cfg["noise_margin"], 0, None)
-        light *= (sat >= cfg["min_saturation"]) & land
+        red_over_blue = rgb[..., 0].astype(np.int16) - rgb[..., 2].astype(np.int16)
+        yellowish = red_over_blue >= cfg["min_red_over_blue"]   # lights, not blue-grey ice or bare rock
+        light *= (sat >= cfg["min_saturation"]) & yellowish & land
 
         grid = np.clip(block_mean(light) / scale, 0, 1)
         grids.append(grid)

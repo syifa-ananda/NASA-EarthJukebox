@@ -14,11 +14,11 @@ Lists every dataset the jukebox can play.
 | `title` | display title |
 | `description` | plain-language, screen-reader-friendly description (read it aloud as-is) |
 | `colorMeaning` | what the colours in the video mean, e.g. "red = warm, blue = cold" |
-| `source` | SVS page URL (currently `"TODO"`) |
+| `source` | SVS page URL (filled in for all four datasets) |
 | `credit` | credit line to show, e.g. "NASA/SVS" |
 | `features` | path to the features file, **relative to `public/data/`** |
-| `video` | path to the video, relative to `public/data/` (videos come later) |
-| `mock` | `true` while the data is fake |
+| `video` | path to the web video (`video.mp4`), relative to `public/data/` |
+| `mock` | `false` for real SVS data, `true` for generated test data |
 
 ## 2. Per-dataset features: `public/data/<id>/features.json`
 
@@ -116,9 +116,9 @@ Paths are relative to the repo root, because the site is served with `python3 -m
 **nightlights is real data** (60 frames, 30 s at fps 2; one year every 2.5 s, re-paced from the SVS video, see `docs/sources.md`):
 
 - Frames `5k` to `5k+4` belong to year `2012 + k`. Frame `5k+4` is the crossfade into the next year, so `motion` is non-zero only on frames `5k+4` and `5k+5`; everything else holds still within a year.
-- `brightness` (0.090 → 0.115) and `value` (0.054 → 0.068) both measure light above the land base on one fixed scale. They rise about 27 % from 2012 to 2023, with a small dip in 2020 and a jump in 2022–2023.
-- Grid: 1.0 = very bright city area (the brightest cell is 0.92). 67 % of cells are 0, which means ocean **or** unlit land. Lit areas are mostly 0.01–0.5.
-- `warmth` is nearly constant (about 0.62): the lights are always the same yellow-white.
+- `brightness` (0.087 → 0.111) and `value` (0.052 → 0.066) both measure light above the land base on one fixed scale. They rise about 27 % from 2012 to 2023, with a small dip in 2020 and a jump in 2022–2023.
+- Grid: 1.0 = very bright city area (the brightest cell is 0.92). 71 % of cells are 0, which means ocean **or** unlit land. Lit areas are mostly 0.01–0.5. Rows 13–15 (Antarctica and the Southern Ocean) are always 0.
+- `warmth` is nearly constant (0.62–0.63): the lights are always the same yellow-white.
 - `pan` is near the centre and drifts slightly right over time (−0.02 → +0.03) as Asia gets brighter.
 - `flashes` is always 0.
 
