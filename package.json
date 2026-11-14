@@ -1,0 +1,12 @@
+{
+  "name": "earth-jukebox",
+  "private": true,
+  "type": "module",
+  "description": "The Earth Information Jukebox: NASA Earth visualizations with live sonification.",
+  "scripts": {
+    "dev": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "tone": "15.1.22"
+  }
+}
