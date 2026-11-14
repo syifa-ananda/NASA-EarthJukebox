@@ -3,13 +3,13 @@
     {
       "id": "sst",
       "title": "Global Sea Surface Temperature",
-      "description": "A map of the world's oceans showing how warm the surface water is, and how ocean currents carry that heat around the globe. The warmest water forms a wide band around the equator, and cooler water lies toward the poles. The pattern changes slowly and smoothly, shifting north and south with the seasons.",
-      "colorMeaning": "red and orange = warm water, blue = cold water",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "Ocean currents around the world from March 2007 to March 2008, coloured by how warm the surface water is. The warmest water, around 28 to 30 degrees Celsius, forms a wide band along the equator, and the water cools steadily toward the poles, down to about 0 degrees. The pattern changes slowly, warming in the north during the northern summer and in the south during the southern summer.",
+      "colorMeaning": "blue = cold (0°C), green = mild, yellow = warm, red = hot (32°C)",
+      "source": "https://svs.gsfc.nasa.gov/3912/",
+      "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio",
       "features": "sst/features.json",
       "video": "sst/video.mp4",
-      "mock": true
+      "mock": false
     },
     {
       "id": "nightlights",

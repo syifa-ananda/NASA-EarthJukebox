@@ -2,7 +2,7 @@
 
 This file describes how the Python analysis (Person 1) hands data to the audio engine (Person 2) and the UI (Person 3). **Please don't change the format without telling the whole team.** If you need a new field, ask and we'll add it to every dataset at once.
 
-Right now every file is **mock data** (`"mock": true` in `index.json`). The real files will have exactly the same shape, so code written against the mocks will keep working.
+`index.json` says which datasets are real: `"mock": false` means real SVS data (currently **sst**), `"mock": true` means generated test data. Real and mock files have exactly the same shape, so code written against the mocks keeps working. Real files can have a different `frameCount` (sst has 133), so always read `frameCount` and never assume 60.
 
 ## 1. The manifest: `public/data/index.json`
 
@@ -101,11 +101,19 @@ function cellFromMouse(frame, event, videoEl) {
 
 Paths are relative to the repo root, because the site is served with `python3 -m http.server` from there.
 
-## 4. What the mock data sounds like
+## 4. What the data sounds like
 
-The mocks follow how each real dataset behaves, so presets can be tuned now:
+**sst is real data** (133 frames, 66.5 s at fps 2):
 
-- **sst**: smooth and slow. Warm band in the middle rows (equator) drifting north/south, a gentle warm/cool cycle, low `motion`, `pan` near 0, no flashes.
+- `value` = area-weighted global mean temperature / 32 °C. Its range is narrow (0.58–0.60, i.e. 18.6–19.2 °C) because the global mean barely moves within one year. Use the **grid** for the interesting variation: cells range from 0 (0 °C) to about 0.97 (31 °C).
+- In the grid, **0 means land** (or ocean that is never visible). A real 0 °C ocean cell also reads about 0.0–0.05, so treat 0 as "no ocean here" and keep near-zero ocean cells quiet.
+- `brightness` is low (0.16–0.18) because most of the ocean in the video is black between streaks.
+- `density` = share of ocean area warmer than 19.2 °C (about 0.58).
+- `flashes` is always 0.
+
+The other datasets are still mocks that imitate how the real data will behave:
+
+- **sst (old mock)**: smooth and slow. Warm band in the middle rows (equator) drifting north/south, a gentle warm/cool cycle, low `motion`, `pan` near 0, no flashes.
 - **nightlights**: dark map with bright clusters mostly on the left/centre (`pan` ≈ −0.2). `brightness`, `density` and `value` rise steadily across the 60 frames (2012 → 2023).
 - **lightning**: low background. `flashes` jumps between 0 and 16, `pan` jumps around as storms move, `motion` spikes on burst frames.
 - **co2**: plumes drift west → east, so `pan` sweeps from about −0.7 to +0.6. `value` rises steadily from about 0.37 to 0.70.
