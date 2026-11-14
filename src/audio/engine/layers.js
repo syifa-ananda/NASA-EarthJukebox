@@ -6,7 +6,7 @@
 //   start(time) / stop()      play / pause (held notes)
 //   dispose()                 free every Tone node the layer created
 
-import Tone from '../tone.js';
+import { Tone } from '../tone.js';   // loaded by init() before anything here runs
 import { getScale, stepToMidi, midiToHz } from '../scales.js';
 
 const dbFromGain = (g) => (g <= 0.001 ? -60 : 20 * Math.log10(g));

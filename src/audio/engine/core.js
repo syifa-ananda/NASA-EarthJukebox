@@ -1,7 +1,7 @@
 // Engine state and the main API functions. The UI imports them through
 // engine/index.js (see src/audio/CONTRACT.md), not from this file.
 
-import Tone from '../tone.js';
+import { Tone, unlockAudio, loadTone } from '../tone.js';
 import { createGraph } from './graph.js';
 import { createLayer } from './layers.js';
 import { mapFrame, sanitizeFrame } from './mapping.js';
@@ -51,9 +51,11 @@ export const getRanges = () => state.ranges;
  */
 export function init() {
   if (state.initPromise) return state.initPromise;
-  const started = Tone.start();   // synchronously, while still inside the gesture
+  const unlocked = unlockAudio();   // synchronously, while still inside the gesture
   state.initPromise = (async () => {
-    await started;
+    await loadTone();               // Tone.js is only loaded now (see tone.js)
+    await unlocked;
+    await Tone.start();
     state.graph = await createGraph();
     applyVolume(0.01);
     buildPreset(state.preset);
@@ -215,7 +217,9 @@ export function playLegend({ duration = 3 } = {}) {
 
 /**
  * Short sentence for an ARIA live region, e.g.
- * "high water temperature, rising pitch, panned left". Uses raw values.
+ * "high water temperature, rising pitch, panned left". Level words and the
+ * pitch trend are relative to the loaded dataset's ranges (what you hear);
+ * without ranges they use the raw values.
  * @param {Partial<import('../types.js').Frame>} features
  * @param {import('../types.js').Preset | string} [preset]  Preset or dataset id; defaults to the current one.
  * @param {Partial<import('../types.js').Frame>} [prev]     Previous frame; defaults to the one before `features`.
@@ -223,11 +227,11 @@ export function playLegend({ duration = 3 } = {}) {
 export function describeFrame(features, preset = state.preset, prev) {
   const p = typeof preset === 'string' ? getPreset(preset) : preset ?? state.preset;
   const before = prev ?? (features === state.lastInput ? state.prevFrame : state.frame);
-  return describeText(features, p, before ?? undefined);
+  return describeText(features, p, before ?? undefined, state.ranges);
 }
 
 /** True if this browser can record (MediaRecorder). */
-export const isRecordingSupported = () => Boolean(Tone.Recorder?.supported);
+export const isRecordingSupported = () => typeof MediaRecorder !== 'undefined';
 /** True while a recording is running. */
 export const isRecording = () => state.recorder !== null;
 
@@ -266,9 +270,11 @@ export function dispose() {
   pause();
   teardownLayers();
   state.graph?.dispose();
-  const transport = Tone.getTransport();
-  transport.stop();
-  transport.cancel();
+  if (Tone) {
+    const transport = Tone.getTransport();
+    transport.stop();
+    transport.cancel();
+  }
   Object.assign(state, {
     initPromise: null, ready: false, graph: null, builtPreset: null,
     params: null, mode: undefined, frame: null, prevFrame: null, lastInput: null,
