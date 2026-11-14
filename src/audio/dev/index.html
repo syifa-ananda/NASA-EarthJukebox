@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audio Engine Test Page</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f7f5; --fg: #1b1b1b; --muted: #555; --panel: #fff; --line: #ccc; --focus: #0057d8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #15171a; --fg: #ececec; --muted: #a9a9a9; --panel: #1f2226; --line: #3a3e44; --focus: #7fb0ff; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 960px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.5rem; margin: 0.5rem 0; }
+    h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+    section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+    .muted { color: var(--muted); }
+    button, select, input { font: inherit; }
+    button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+    button[aria-pressed="true"] { background: var(--focus); color: #fff; border-color: var(--focus); }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .sliders { display: grid; grid-template-columns: 7.5rem 1fr 3.5rem; gap: 6px 12px; align-items: center; }
+    .sliders input { width: 100%; }
+    output { font-variant-numeric: tabular-nums; }
+    #probe { display: inline-block; max-width: 100%; border: 1px solid var(--line); border-radius: 4px; line-height: 0; }
+    #probe canvas { width: 100%; max-width: 640px; height: auto; image-rendering: pixelated; }
+    #params { font-size: 0.85rem; white-space: pre-wrap; margin: 0.5rem 0 0; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Earth Jukebox audio engine: test page</h1>
+  <p class="muted">Developer page for the audio engine. Serve the repo root (<code>npm run dev</code> or
+    <code>python3 -m http.server</code>) and open <code>/src/audio/dev/</code>.</p>
+
+  <section aria-labelledby="h-playback">
+    <h2 id="h-playback">Playback</h2>
+    <div class="row">
+      <button id="play" type="button" aria-pressed="false">Play</button>
+      <label for="volume">Volume</label>
+      <input id="volume" type="range" min="0" max="100" value="80">
+      <output id="volume-out" for="volume">80%</output>
+      <label for="preset">Preset</label>
+      <select id="preset"></select>
+    </div>
+    <p id="sound-description"></p>
+  </section>
+
+  <section aria-labelledby="h-mock">
+    <h2 id="h-mock">Mock data</h2>
+    <div class="row">
+      <label for="dataset">Dataset</label>
+      <select id="dataset"></select>
+      <button id="mock" type="button" aria-pressed="false">Play mock</button>
+      <label for="speed">Speed</label>
+      <select id="speed">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+      </select>
+      <label for="frame">Frame</label>
+      <input id="frame" type="range" min="0" max="0" value="0">
+      <output id="frame-out" for="frame">0</output>
+    </div>
+    <p id="mock-status" class="muted"></p>
+  </section>
+
+  <section aria-labelledby="h-features">
+    <h2 id="h-features">Features (current frame)</h2>
+    <p class="muted">Moving a slider sends a frame to the engine straight away. Mock playback overwrites them on the next frame.</p>
+    <div id="sliders" class="sliders"></div>
+  </section>
+
+  <section aria-labelledby="h-probe">
+    <h2 id="h-probe">Explore (probe)</h2>
+    <p id="probe-help" class="muted">Focus the map, then use the arrow keys to move one cell, or Home / End / Page Up / Page Down
+      to jump to the edges. Enter or Space replays the current cell. You can also click a cell.</p>
+    <div id="probe" tabindex="0" role="application" aria-roledescription="probe map"
+         aria-label="Probe map, 32 columns by 16 rows" aria-describedby="probe-help">
+      <canvas id="probe-canvas" width="640" height="320" aria-hidden="true"></canvas>
+    </div>
+    <p id="probe-out" aria-live="polite"></p>
+  </section>
+
+  <section aria-labelledby="h-narration">
+    <h2 id="h-narration">Narration</h2>
+    <label><input id="announce" type="checkbox" checked> Announce frame descriptions (at most every 3 seconds)</label>
+    <p id="describe" aria-live="polite"></p>
+    <details>
+      <summary>Mapped sound parameters</summary>
+      <pre id="params"></pre>
+    </details>
+  </section>
+</main>
+
+<script src="../vendor/Tone.js"></script>
+<script type="module" src="./dev.js"></script>
+</body>
+</html>
