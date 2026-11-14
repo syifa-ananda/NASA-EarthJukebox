@@ -10,10 +10,11 @@ export default {
     'heard on the left or right where the storm is. Big bursts sound like a drum roll. ' +
     'A quiet, sparse minor-key pad sits underneath and trembles when storms move fast.',
   valueLabel: 'lightning activity',
+  valueWords: { low: 'little lightning', high: 'a lot of lightning' },
+  legendExtra: 'Each drum hit is one lightning flash.',
 
   rootMidi: 45,              // A2
   scales: { warm: 'minorPentatonic', cool: 'minorPentatonic' },   // urgent
-  weights: { brightness: 5, value: 5 },   // background is very dark (0.04-0.10)
 
   mapping: {
     ramp: 0.25,              // follow storms quickly
@@ -23,6 +24,7 @@ export default {
     hitWindow: 0.5,
     filterHz: [400, 3000],
     reverb: { decay: 5, wet: 0.35 },
+    trimDb: -4,
   },
 
   layers: [

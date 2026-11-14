@@ -10,10 +10,11 @@ export default {
     'so the music slowly fills in as cities grow from 2012 to 2023. ' +
     'A quiet pad holds the harmony, and the bells sit where the lights are, left or right.',
   valueLabel: 'night light',
+  valueWords: { low: 'dark areas with few lights', high: 'bright city lights' },
+  legendExtra: 'The more lights on the map, the more bells ring.',
 
   rootMidi: 55,             // G3: bells sit high
   scales: { warm: 'majorPentatonic', cool: 'minorPentatonic' },
-  weights: { brightness: 3, value: 2.5 },   // the map is mostly dark; lift the range
   sources: { rate: 'brightness' },           // more light -> more bells
 
   mapping: {

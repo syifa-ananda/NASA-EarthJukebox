@@ -12,12 +12,16 @@ export default {
     'warm colours move to a major key and cool colours to a minor key, ' +
     'and the sound moves left or right to follow the activity on the map.',
   valueLabel: 'value',
+  valueWords: { low: 'lower values', high: 'higher values' },
+  legendExtra: '',
 
   rootMidi: 48,            // C3
   octaves: 2,
   scales: { warm: 'majorPentatonic', cool: 'minorPentatonic' },
 
-  // Multiplies each frame field before mapping. 1 = as is.
+  // Multiplies each frame field before mapping (after per-file normalization,
+  // see engine/normalize.js). 1 = as is. For artistic emphasis only: ranges
+  // are already handled by normalization.
   weights: { brightness: 1, warmth: 1, density: 1, pan: 1, motion: 1, flashes: 1, value: 1 },
 
   // Which frame field drives which sound parameter.
@@ -50,6 +54,7 @@ export default {
     maxHits: 6,
     hitWindow: 0.5,
     reverb: { decay: 3.5, wet: 0.3 },
+    trimDb: 0,              // loudness match across presets (measured, about -20 dB RMS)
   },
 
   layers: [
