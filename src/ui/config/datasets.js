@@ -18,6 +18,8 @@
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                ramp and the legend bar; null if the colour key is unknown
 //   summary      { subject, high } wording for the heatmap's text alternative
+//   years        optional { start, end }: the date range the frames cover, so the
+//                timeline can say "about 2014". Frames are assumed evenly spaced.
 //   sounds       planned visual→sound mappings ({ from, to, detail }).
 //                Person 2: edit these freely to match the real presets.
 
@@ -54,6 +56,7 @@ export const RECORDS = [
       high: 'Bright city lights',
     },
     summary: { subject: 'night lights', high: 'Brightest lights' },
+    years: { start: 2012, end: 2023 },
     sounds: [
       { from: 'Light level', to: 'pitch', detail: 'Brighter nights play higher notes on a pentatonic scale.' },
       { from: 'Lit area', to: 'number of notes', detail: 'More lit land adds more notes, like a chord that grows over the years.' },
@@ -73,6 +76,7 @@ export const RECORDS = [
       high: 'Lightning flash',
     },
     summary: { subject: 'lightning activity', high: 'Most lightning' },
+    years: { start: 2017, end: 2023 },
     sounds: [
       { from: 'New flashes', to: 'drum hits', detail: 'Each burst of lightning triggers percussion. More flashes, more hits.' },
       { from: 'Where the storms are', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
@@ -201,6 +205,7 @@ export function mergeRecords(indexEntries = []) {
       accent: cfg.accent ?? DEFAULT_ACCENT,
       legend: cfg.legend ?? null,
       summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
+      years: cfg.years ?? null,
       sounds: cfg.sounds ?? [],
       playable: !!entry,
       mock: !!entry?.mock,
@@ -222,6 +227,7 @@ export function mergeRecords(indexEntries = []) {
       accent: DEFAULT_ACCENT,
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
+      years: null,
       sounds: [],
       playable: true,
       mock: !!entry.mock,

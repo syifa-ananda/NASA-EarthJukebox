@@ -17,6 +17,7 @@
   --badge-soon: #d0c2ff;
   --disc: #15151c;
   --disc-groove: #2c2c38;
+  --btn-text: #0b1020;
 
   --radius: 10px;
   --gap: 1rem;
@@ -38,6 +39,7 @@
     --danger: #a3171d;
     --badge-mock: #7a4a00;
     --badge-soon: #5a3ea6;
+    --btn-text: #ffffff;
   }
 }
 
@@ -410,6 +412,162 @@ a:hover {
 
 .badge-soon {
   color: var(--badge-soon);
+}
+
+/* Playing indicator: the selected record's disc spins (static under reduced
+   motion; the Pause label and the "Playing" caption carry the state too). */
+@keyframes disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.is-playing .record-input:checked + .record-card .record-disc {
+  animation: disc-spin 2.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-playing .record-input:checked + .record-card .record-disc {
+    animation: none;
+  }
+}
+
+/* ---------- Transport ---------- */
+
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.btn-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-width: 7.5rem;
+  min-height: 48px;
+  padding: 0.5rem 1.2rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--btn-text);
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.btn-play:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.btn-play[aria-disabled="true"] {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.icon {
+  display: inline-block;
+  flex: none;
+}
+
+/* Drawn with borders in currentColor, so they follow the theme and stay
+   visible in forced-colours mode. */
+.icon-play {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0.5rem 0 0.5rem 0.8rem;
+  border-color: transparent transparent transparent currentColor;
+}
+
+.icon-pause {
+  width: 0.8rem;
+  height: 1rem;
+  border-left: 0.28rem solid currentColor;
+  border-right: 0.28rem solid currentColor;
+}
+
+.t-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.t-group label {
+  font-weight: 600;
+}
+
+.t-timeline {
+  flex: 1 1 16rem;
+}
+
+.t-timeline input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 6rem;
+}
+
+.transport input[type="range"] {
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.transport input[type="range"]:disabled {
+  cursor: not-allowed;
+}
+
+#volume {
+  width: 7rem;
+}
+
+.readout {
+  min-width: 4.5ch;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.transport select {
+  min-height: 44px;
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.t-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.t-check input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.transport-help {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
 /* ---------- Info panel ---------- */

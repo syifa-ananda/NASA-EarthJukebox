@@ -6,6 +6,8 @@ import { renderRecordList } from './records.js';
 import { renderInfo } from './info.js';
 import * as viewer from './viewer.js';
 import { announce } from './narrator.js';
+import { createPlayer } from './player.js';
+import { installShortcuts } from './shortcuts.js';
 
 const nowPlaying = document.getElementById('now-playing');
 const infoBody = document.getElementById('info-body');
@@ -24,6 +26,17 @@ const state = {
 
 let picker = null;
 let announceTimer = null;
+
+const player = createPlayer({
+  transportEl: document.getElementById('transport'),
+  onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
+});
+
+installShortcuts({
+  toggle: () => player.toggle(),
+  back: () => player.step(-1),
+  forward: () => player.step(1),
+});
 
 // ---------- URL hash: #record=<id> ----------
 
@@ -60,6 +73,9 @@ async function selectRecord(id, { announceIt = true } = {}) {
   state.current = record;
   state.data = null;
 
+  // Stops the old record's clock and sound at once; Play waits for new data.
+  player.clear(record);
+
   writeHash(record.id);
   nowPlaying.textContent = record.title;
   renderInfo(infoBody, record);
@@ -75,10 +91,11 @@ async function selectRecord(id, { announceIt = true } = {}) {
     const data = await loadFeatures(record.entry);
     if (token !== state.loadToken) return; // a newer selection won
     state.data = data;
-    viewer.showFrame(record, data, 0);
+    player.setData(record, data); // loads the preset, shows frame 0, stays paused
   } catch (err) {
     if (token !== state.loadToken) return;
     console.error(err);
+    player.clear(record, { error: true });
     const msg = `Could not load ${record.title}. Check that the site is served from the repo root, then choose the record again.`;
     viewer.showError(msg);
     announce(msg, { force: true });

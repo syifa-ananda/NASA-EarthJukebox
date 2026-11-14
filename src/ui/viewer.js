@@ -74,10 +74,20 @@ export function showError(text) {
   setStatus(text, 'error');
 }
 
-export function showFrame(record, data, index) {
+/**
+ * Show frame `index`. Called by the player's clock for every frame, so the
+ * picture always matches the sound.
+ *
+ * TODO(video): when record.entry.video exists and loads, show a <video> here
+ * instead of the heatmap. Keep it paused and set
+ * `video.currentTime = index / data.fps` in this function, so the player's
+ * clock stays the only clock and video, sound and timeline can't drift.
+ * mediaUrl(record.entry.video) from adapters/data.js gives the URL.
+ */
+export function showFrame(record, data, index, { caption } = {}) {
   const frame = frameAt(data, index);
   const c = getCanvas(data.grid.cols, data.grid.rows);
   drawHeatmap(c, frame.grid, record.legend?.stops ?? GREY_RAMP);
   c.setAttribute('aria-label', describeFrame(record, frame, index, data.frameCount));
-  setStatus(`Ready. Frame ${index + 1} of ${data.frameCount}.`, 'caption');
+  setStatus(caption ?? `Frame ${index + 1} of ${data.frameCount}`, 'caption');
 }
