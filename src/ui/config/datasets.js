@@ -20,8 +20,9 @@
 //   summary      { subject, high } wording for the heatmap's text alternative
 //   years        optional { start, end }: the date range the frames cover, so the
 //                timeline can say "about 2014". Frames are assumed evenly spaced.
-//   sounds       planned visual→sound mappings ({ from, to, detail }).
-//                Person 2: edit these freely to match the real presets.
+//   sounds       visual→sound mappings ({ from, to, detail }) for the info panel.
+//                Playable records: kept in line with src/audio/presets/<id>.js and
+//                src/audio/CONTRACT.md. Coming-soon records: planned placeholders.
 
 export const RECORDS = [
   {
@@ -36,12 +37,14 @@ export const RECORDS = [
       high: 'Warm water',
     },
     summary: { subject: 'sea surface temperature', high: 'Warmest water' },
+    // Matches src/audio/presets/sst.js (merged over default.js) and CONTRACT.md §4.
     sounds: [
-      { from: 'Water temperature', to: 'pitch', detail: 'Warmer water plays higher notes on a pentatonic scale.' },
-      { from: 'Brightness', to: 'loudness', detail: 'A brighter picture plays louder.' },
-      { from: 'Warm or cool colours', to: 'tone colour', detail: 'More red gives a warmer, brighter sound; more blue gives a softer one.' },
-      { from: 'Where the warm water is', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-      { from: 'Change between frames', to: 'shimmer', detail: 'Faster change adds a gentle tremolo.' },
+      { from: 'Water temperature', to: 'pitch', detail: 'Warmer water plays higher notes.' },
+      { from: 'Brightness', to: 'loudness and tone', detail: 'A brighter picture sounds louder and more open; a darker one softer and more muffled.' },
+      { from: 'Warm or cool colours', to: 'key', detail: 'Redder pictures move the music to a major key, bluer ones to a minor key.' },
+      { from: 'Change between frames', to: 'pad swells', detail: 'When the currents move faster, the pads swell louder and the tempo lifts a little.' },
+      { from: 'Busy areas on the map', to: 'number of notes', detail: 'A busier map adds more chord notes and more soft bells on top.' },
+      { from: 'Where the activity is', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
     ],
   },
   {
@@ -57,11 +60,13 @@ export const RECORDS = [
     },
     summary: { subject: 'night lights', high: 'Brightest lights' },
     years: { start: 2012, end: 2023 },
+    // Matches src/audio/presets/nightlights.js (merged over default.js).
     sounds: [
-      { from: 'Light level', to: 'pitch', detail: 'Brighter nights play higher notes on a pentatonic scale.' },
-      { from: 'Lit area', to: 'number of notes', detail: 'More lit land adds more notes, like a chord that grows over the years.' },
-      { from: 'Brightness', to: 'loudness', detail: 'A brighter picture plays louder.' },
-      { from: 'Where the lights are', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
+      { from: 'Brightness', to: 'number of bells', detail: 'The brighter the map, the more bells ring, so the music fills in from 2012 to 2023.' },
+      { from: 'Light level', to: 'pitch', detail: 'Brighter nights play higher notes.' },
+      { from: 'Lit area', to: 'harmony', detail: 'More lit land adds more notes to the chord.' },
+      { from: 'Warm or cool colours', to: 'key', detail: 'Warmer colours move the music to a major key, cooler ones to a minor key.' },
+      { from: 'Where the lights are', to: 'left or right', detail: 'The bells sit where the lights are: west in your left ear, east in your right.' },
     ],
   },
   {
@@ -77,11 +82,13 @@ export const RECORDS = [
     },
     summary: { subject: 'lightning activity', high: 'Most lightning' },
     years: { start: 2017, end: 2023 },
+    // Matches src/audio/presets/lightning.js (merged over default.js).
     sounds: [
-      { from: 'New flashes', to: 'drum hits', detail: 'Each burst of lightning triggers percussion. More flashes, more hits.' },
-      { from: 'Where the storms are', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-      { from: 'Change between frames', to: 'rhythm', detail: 'Sudden change makes the rhythm busier.' },
-      { from: 'Brightness', to: 'loudness', detail: 'A brighter picture plays louder.' },
+      { from: 'New flashes', to: 'thunder and crackle', detail: 'Each flash is a deep thunder thump with a crackle on top. Big bursts sound like a drum roll.' },
+      { from: 'Where the storms are', to: 'left or right', detail: 'You hear each storm on its side of the map: west in your left ear, east in your right.' },
+      { from: 'Change between frames', to: 'trembling and tempo', detail: 'When storms move fast, the pad trembles and the tempo speeds up.' },
+      { from: 'Lightning activity', to: 'pitch', detail: 'More activity raises the quiet pad underneath. It always stays in a minor key.' },
+      { from: 'Brightness', to: 'loudness and tone', detail: 'A brighter picture sounds louder and more open.' },
     ],
   },
   {
@@ -96,11 +103,13 @@ export const RECORDS = [
       high: 'More carbon dioxide',
     },
     summary: { subject: 'carbon dioxide', high: 'Most carbon dioxide' },
+    // Matches src/audio/presets/co2.js (merged over default.js).
     sounds: [
-      { from: 'Amount of carbon dioxide', to: 'pitch', detail: 'More carbon dioxide plays higher notes on a pentatonic scale, so the melody climbs over time.' },
-      { from: 'Where the plumes are', to: 'left or right', detail: 'Plumes drifting west to east move the sound from your left ear to your right.' },
-      { from: 'Spread of the plumes', to: 'layers', detail: 'Wider plumes add more layers of sound.' },
-      { from: 'Change between frames', to: 'shimmer', detail: 'Faster change adds a gentle tremolo.' },
+      { from: 'Amount of carbon dioxide', to: 'drone pitch', detail: 'The drone rises as concentrations rise.' },
+      { from: 'Spread of the plumes', to: 'thicker drone', detail: 'As carbon dioxide spreads across the map, the drone adds more voices.' },
+      { from: 'High carbon dioxide', to: 'clashing note', detail: 'When levels are high, a tense, clashing note creeps in.' },
+      { from: 'Where the plumes are', to: 'left or right', detail: 'The drone drifts from your left ear to your right as the wind carries the plumes east.' },
+      { from: 'Brightness', to: 'loudness and tone', detail: 'A brighter picture sounds louder and more open.' },
     ],
   },
   {

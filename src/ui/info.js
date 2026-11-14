@@ -4,6 +4,8 @@
 import { h } from './dom.js';
 import { cssGradient } from './color.js';
 import { statusLabel } from './config/datasets.js';
+// Plain JS, no Tone.js: works even when the audio engine falls back to the stub.
+import { getPreset } from '../audio/presets/index.js';
 
 function legendBlock(record) {
   const parts = [];
@@ -25,8 +27,14 @@ function legendBlock(record) {
 }
 
 function soundList(record) {
-  if (!record.sounds.length) return h('p', { class: 'muted' }, 'Sound design coming soon.');
+  // Playable records: Person 2's own description of the preset comes first.
+  // Unknown ids get the engine's default preset, which is what actually plays.
+  const description = record.playable ? getPreset(record.id).soundDescription : '';
+  if (!record.sounds.length) {
+    return h('p', {}, description || 'Sound design coming soon.');
+  }
   return [
+    description && h('p', { class: 'sound-description' }, description),
     h(
       'ul',
       { class: 'sound-list' },
@@ -48,7 +56,7 @@ function soundList(record) {
         ),
       ),
     ),
-    h('p', { class: 'muted small' }, 'Planned mapping. The final sounds may change.'),
+    !record.playable && h('p', { class: 'muted small' }, 'Planned mapping. The final sounds may change.'),
   ];
 }
 

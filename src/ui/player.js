@@ -6,10 +6,20 @@ import * as audio from './adapters/audio.js';
 import * as viewer from './viewer.js';
 import { announce } from './narrator.js';
 import { createTransport, DEFAULT_VOLUME } from './transport.js';
+import { frameLabel, yearAt } from './narration.js';
 
 const PREVIEW_GAP_MS = 150; // scrub previews: at most one note per 150 ms
 
-export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
+const NO_NARRATION = {
+  setContext() {}, onPlay() {}, onStop() {}, onFrame() {}, onUserSeek() {},
+};
+
+/**
+ * @param {{ transportEl: HTMLElement, engineStatusEl?: HTMLElement,
+ *           narration?: ReturnType<import('./narration.js').createLiveNarration>,
+ *           onPlayingChange?: (playing: boolean) => void }} opts
+ */
+export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRATION, onPlayingChange = () => {} }) {
   const s = {
     record: null,
     data: null,
@@ -44,6 +54,10 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
   audio.setVolume(DEFAULT_VOLUME / 100);
   audio.whenReady().then(() => {
     s.engineReady = true;
+    if (engineStatusEl) {
+      engineStatusEl.textContent =
+        audio.engineName() === 'tone' ? 'Sound: Tone.js engine' : 'Sound: simple fallback (Tone.js could not load)';
+    }
     refresh();
   });
 
@@ -56,18 +70,8 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
   const frameSeconds = () => 1 / (s.data.fps * s.speed);
   const canPlay = () => s.engineReady && !!s.data;
 
-  function yearAt(i) {
-    const years = s.record?.years;
-    if (!years || !s.data) return null;
-    const f = s.data.frameCount > 1 ? i / (s.data.frameCount - 1) : 0;
-    return Math.round(years.start + f * (years.end - years.start));
-  }
-
-  /** "frame 12 of 60, about 2014" */
-  function frameText(i) {
-    const year = yearAt(i);
-    return `frame ${i + 1} of ${s.data.frameCount}${year ? `, about ${year}` : ''}`;
-  }
+  /** "Frame 12 of 60, about 2014" — same wording as the narration. */
+  const frameText = (i) => frameLabel(s.record, s.data, i);
 
   function helpText() {
     if (!s.record) return 'Choose a record to enable Play.';
@@ -84,9 +88,8 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
 
   function render() {
     const text = frameText(s.index);
-    const caption = `${s.playing ? 'Playing · ' : ''}${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-    viewer.showFrame(s.record, s.data, s.index, { caption });
-    transport.setFrame(s.index, s.data.frameCount, caption.replace('Playing · ', ''), yearAt(s.index));
+    viewer.showFrame(s.record, s.data, s.index, { caption: s.playing ? `Playing · ${text}` : text });
+    transport.setFrame(s.index, s.data.frameCount, text, yearAt(s.record, s.data, s.index));
   }
 
   function setPlaying(on) {
@@ -134,6 +137,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
     if (advanced) {
       render();
       audio.update(frame(), { frameSeconds: step });
+      narration.onFrame(s.index);
     }
     s.raf = requestAnimationFrame(tick);
   }
@@ -141,6 +145,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
   function finish() {
     s.session += 1;
     stopClock();
+    narration.onStop();
     audio.pause();
     setPlaying(false);
     render();
@@ -160,6 +165,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
     // (the first start can take a moment while Tone.js builds its graph).
     startClock();
     announce(`Playing ${s.record.title}.`, { force: true });
+    narration.onPlay();
 
     Promise.resolve(started)
       .then(() => audio.play())
@@ -176,6 +182,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
         if (session !== s.session) return;
         s.session += 1;
         stopClock();
+        narration.onStop();
         setPlaying(false);
         render();
         announce('The sound could not start. Press Play to try again.', { force: true });
@@ -185,10 +192,12 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
   function pause() {
     s.session += 1;
     stopClock();
+    narration.onStop();
     audio.pause();
     setPlaying(false);
     render();
-    announce(`Paused at ${frameText(s.index)}.`, { force: true });
+    const text = frameText(s.index);
+    announce(`Paused at ${text.charAt(0).toLowerCase()}${text.slice(1)}.`, { force: true });
   }
 
   function toggle() {
@@ -208,6 +217,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
     render();
     if (s.playing) audio.update(frame(), { frameSeconds: frameSeconds() });
     else schedulePreview();
+    narration.onUserSeek(); // quiet while scrubbing, one summary when it stops
   }
 
   function schedulePreview() {
@@ -242,6 +252,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
       if (s.playing) {
         s.resumeOnVisible = true;
         stopClock();
+        narration.onStop();
         audio.pause();
       }
     } else if (s.resumeOnVisible) {
@@ -249,6 +260,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
       if (s.playing) {
         Promise.resolve(audio.play()).catch(() => {});
         startClock();
+        narration.onPlay();
       }
     }
   }
@@ -267,6 +279,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
     s.data = null;
     s.error = error;
     s.index = 0;
+    narration.setContext(record, null); // cancels anything pending for the old record
     transport.setRange(0);
     refresh();
   }
@@ -280,6 +293,7 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
     transport.setRange(data.frameCount);
     audio.load(record.id);
     audio.update(frame(), { frameSeconds: frameSeconds() }); // silent; primes probe()
+    narration.setContext(record, data);
     render();
     refresh();
   }
@@ -290,6 +304,8 @@ export function createPlayer({ transportEl, onPlayingChange = () => {} }) {
     toggle,
     step,
     isPlaying: () => s.playing,
+    currentIndex: () => s.index,
+    hasData: () => !!s.data,
     focusPlay: () => transport.focusPlay(),
   };
 }

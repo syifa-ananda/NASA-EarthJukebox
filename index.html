@@ -40,7 +40,12 @@
         <!-- Not a live region: all narration goes through #announcer. -->
         <p id="viewer-status" class="viewer-status">Loading datasets…</p>
       </div>
+      <!-- Latest narration, for sighted users. NOT a live region: #announcer speaks it. -->
+      <p id="narration-caption" class="narration-caption"></p>
       <div id="transport"></div>
+      <div id="narration-controls"></div>
+      <!-- Which sound engine is running. Readable when navigated to; never announced. -->
+      <p id="engine-status" class="engine-status">Sound: loading…</p>
     </section>
 
     <aside id="info" class="panel info" aria-labelledby="info-heading">

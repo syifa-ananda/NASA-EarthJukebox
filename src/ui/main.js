@@ -8,6 +8,8 @@ import * as viewer from './viewer.js';
 import { announce } from './narrator.js';
 import { createPlayer } from './player.js';
 import { installShortcuts } from './shortcuts.js';
+import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
+import { renderNarrationControls } from './narration-controls.js';
 
 const nowPlaying = document.getElementById('now-playing');
 const infoBody = document.getElementById('info-body');
@@ -27,28 +29,62 @@ const state = {
 let picker = null;
 let announceTimer = null;
 
+// ---------- URL hash: #record=<id>&narration=<level> ----------
+
+function readHash() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const record = params.get('record');
+  const narration = params.get('narration');
+  return {
+    record: record && /^[\w-]+$/.test(record) ? record : null,
+    narration: isLevel(narration) ? narration : null,
+  };
+}
+
+function writeHash() {
+  const params = new URLSearchParams();
+  if (state.current) params.set('record', state.current.id);
+  params.set('narration', narration.getLevel());
+  // replaceState: no history entry per arrow press, and no hashchange event.
+  history.replaceState(null, '', `#${params}`);
+}
+
+// ---------- Player, narration, shortcuts ----------
+
+const narration = createLiveNarration({
+  captionEl: document.getElementById('narration-caption'),
+  getIndex: () => player.currentIndex(),
+});
+
 const player = createPlayer({
   transportEl: document.getElementById('transport'),
+  engineStatusEl: document.getElementById('engine-status'),
+  narration,
   onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
 });
+
+const narrationControls = renderNarrationControls(document.getElementById('narration-controls'), {
+  level: DEFAULT_LEVEL,
+  onChange: (level) => setNarrationLevel(level),
+});
+
+function setNarrationLevel(level, { announceIt = true } = {}) {
+  if (!isLevel(level)) return;
+  narration.setLevel(level, { announceIt });
+  narrationControls.set(level);
+  writeHash();
+}
 
 installShortcuts({
   toggle: () => player.toggle(),
   back: () => player.step(-1),
   forward: () => player.step(1),
+  cycleNarration: () => {
+    const next = LEVELS[(LEVELS.indexOf(narration.getLevel()) + 1) % LEVELS.length];
+    setNarrationLevel(next);
+  },
+  describe: () => narration.describeNow(),
 });
-
-// ---------- URL hash: #record=<id> ----------
-
-function recordIdFromHash() {
-  const m = location.hash.match(/(?:^#|&)record=([\w-]+)/);
-  return m ? m[1] : null;
-}
-
-function writeHash(id) {
-  // replaceState: no history entry per arrow press, and no hashchange event.
-  history.replaceState(null, '', `#record=${id}`);
-}
 
 // ---------- Selection ----------
 
@@ -76,7 +112,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
   // Stops the old record's clock and sound at once; Play waits for new data.
   player.clear(record);
 
-  writeHash(record.id);
+  writeHash();
   nowPlaying.textContent = record.title;
   renderInfo(infoBody, record);
   if (announceIt) scheduleAnnouncement(record);
@@ -104,7 +140,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
 
 // ---------- In-page links ----------
 // Skip link and nav links move focus to their section without overwriting the
-// #record=<id> hash, so a reload still restores the selected record.
+// #record=…&narration=… hash, so a reload still restores both.
 
 function handleInPageLinks(event) {
   if (event.defaultPrevented || event.button !== 0) return;
@@ -123,6 +159,9 @@ function handleInPageLinks(event) {
 async function init() {
   document.addEventListener('click', handleInPageLinks);
 
+  const fromHash = readHash();
+  if (fromHash.narration) setNarrationLevel(fromHash.narration, { announceIt: false });
+
   let entries;
   try {
     entries = await loadIndex();
@@ -140,14 +179,15 @@ async function init() {
   picker = renderRecordList(recordList, state.records, { onSelect: (id) => selectRecord(id) });
 
   window.addEventListener('hashchange', () => {
-    const id = recordIdFromHash();
-    if (id && id !== state.current?.id) {
-      picker.check(id);
-      selectRecord(id);
+    const next = readHash();
+    if (next.narration && next.narration !== narration.getLevel()) setNarrationLevel(next.narration);
+    if (next.record && next.record !== state.current?.id) {
+      picker.check(next.record);
+      selectRecord(next.record);
     }
   });
 
-  const restored = recordIdFromHash();
+  const restored = fromHash.record;
   if (restored && state.records.some((r) => r.id === restored)) {
     picker.check(restored);
     selectRecord(restored, { announceIt: false });

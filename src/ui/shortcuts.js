@@ -14,6 +14,8 @@ export const SHORTCUTS = [
   { action: 'toggle', keys: ['Space'], description: 'Play or pause, when focus is in the player panel but not on a control' },
   { action: 'back', keys: ['J'], description: 'Step back one frame' },
   { action: 'forward', keys: ['L'], description: 'Step forward one frame' },
+  { action: 'cycleNarration', keys: ['N'], description: 'Change narration: off, brief, detailed' },
+  { action: 'describe', keys: ['D'], description: 'Describe the current frame in detail now' },
 ];
 
 const settings = { singleKeyShortcuts: true };
@@ -41,9 +43,9 @@ function isControl(el) {
   return !!el.closest('button, a[href], input, select, textarea, summary, [role="button"], [role="checkbox"], [role="radio"]');
 }
 
-const KEY_ACTIONS = { k: 'toggle', j: 'back', l: 'forward' };
+const KEY_ACTIONS = { k: 'toggle', j: 'back', l: 'forward', n: 'cycleNarration', d: 'describe' };
 
-/** actions: { toggle(), back(), forward() } */
+/** actions: { toggle(), back(), forward(), cycleNarration(), describe() } */
 export function installShortcuts(actions) {
   document.addEventListener('keydown', (event) => {
     if (!settings.singleKeyShortcuts) return;
@@ -54,7 +56,8 @@ export function installShortcuts(actions) {
     let action = KEY_ACTIONS[event.key.toLowerCase()] ?? null;
     if (event.key === ' ' && target.closest?.('#player') && !isControl(target)) action = 'toggle';
     if (!action) return;
-    if (action === 'toggle' && event.repeat) return; // holding the key must not flap
+    // Holding a key must not flap play/pause or spin through narration levels.
+    if (event.repeat && action !== 'back' && action !== 'forward') return;
 
     event.preventDefault();
     actions[action]?.();
