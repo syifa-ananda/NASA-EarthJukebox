@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Turn extracted video frames into public/data/<id>/features.json (see docs/data-contract.md).
+"""Turn SVS video frames into public/data/<id>/features.json (see docs/data-contract.md).
 
 Usage:
   python3 src/analysis/analyze.py sst raw/sst/frames --colorbar raw/sst/colorbar.png
   python3 src/analysis/analyze.py nightlights raw/nightlights/frames
+  python3 src/analysis/analyze.py lightning raw/lightning/source.mp4
 
 Frames are 0000.png, 0001.png, ... at the dataset fps, from scripts/extract_frames.sh
-(sst) or scripts/build_series.py (nightlights).
+(sst) or scripts/build_series.py (nightlights). Lightning is read straight from the
+video instead (see events mode below).
 
-Each dataset uses one of two modes:
+Each dataset uses one of three modes:
   "colorbar"  value is read from a colorbar (sst)
   "light"     no colorbar; value is light above the static base map (nightlights)
+  "events"    short-lived dots counted as they appear (lightning)
 
 How the sst calibration works (colorbar mode)
 -----------------------------
@@ -37,6 +40,18 @@ which removes the lights and keeps the smooth land texture. Light is luminance
 above that base. Neutral grey pixels are ignored: every light pixel is yellowish,
 while snow, ice and shaded relief are grey, and that is where the base estimate
 is least reliable. All years use the same fixed scale, so growth is preserved.
+
+How lightning is measured (events mode)
+---------------------------------------
+Each detected flash is a small yellow dot that switches on, stays for about 0.4-0.7 s
+(the 10-day window) and switches off, with no fade. The picture changes almost every
+1/60 s, so the video is decoded at DECODE_FPS and each data frame adds up the
+DECODE_FPS / fps decoded frames inside its time slot:
+  - new lightning = pixels that turn yellow from one decoded frame to the next,
+  - coverage      = share of each grid cell that is yellow, averaged over the slot.
+A grid cell "flashes" when at least flash_share of its area turns newly yellow within
+one data frame (a storm bursting). flashes = number of such cells, capped at 16, and
+pan = centre of those cells, so the percussion sounds where the storms burst.
 """
 
 import argparse
@@ -79,6 +94,20 @@ DATASETS = {
         "light_scale": 30.0,      # luminance units of light that map to 1.0 (fixed, all years)
         "lit_threshold": 10.0,    # luminance units above base that count as a lit pixel
         "flashes": False,
+    },
+    "lightning": {
+        "mode": "events",
+        "title": "Lightning Events Detected from the ISS 2017–2023",
+        "fps": 2,
+        "decode_fps": 30,          # the source updates about every 1-2 of its 60 fps frames
+        "decode_size": (2048, 1024),
+        "yellow_min": 30,          # (R+G)/2 - B above this = lightning dot
+        "flash_share": 0.20,       # share of a cell newly lit within one data frame = 1 flash
+        "max_flashes": 16,
+        "coverage_scale": 0.5,     # grid 1.0 = half the cell covered by lightning
+        "storm_share": 0.02,       # cell coverage that counts as "storms present" (density)
+        "band_rows": (3, 12),      # grid rows the ISS can see (about 52 N to 52 S), inclusive
+        "light_scale": 10.0,       # luminance units above the base map that map to 1.0
     },
 }
 
@@ -187,6 +216,9 @@ def lat_weights(height):
 
 def analyze(ds_id, frames_dir, colorbar):
     cfg = DATASETS[ds_id]
+    if cfg["mode"] == "events":
+        write_features(ds_id, cfg, analyze_events(cfg, Path(frames_dir)))
+        return
     frame_paths = sorted(Path(frames_dir).glob("*.png"))
     if not frame_paths:
         raise SystemExit(f"no PNG frames in {frames_dir}")
@@ -378,10 +410,107 @@ def analyze_light(cfg, frame_paths):
     return frames
 
 
+# ---------------------------------------------------------------------------
+# Events mode (lightning)
+# ---------------------------------------------------------------------------
+
+def decode_video(path, fps, size):
+    """Yield RGB frames (uint8, H x W x 3) from a video at the given fps and size."""
+    import subprocess
+    W, H = size
+    proc = subprocess.Popen(
+        ["ffmpeg", "-v", "error", "-i", str(path),
+         "-vf", f"fps={fps},scale={W}:{H}:flags=area",
+         "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        stdout=subprocess.PIPE)
+    n = W * H * 3
+    try:
+        while True:
+            buf = proc.stdout.read(n)
+            if len(buf) < n:
+                break
+            yield np.frombuffer(buf, np.uint8).reshape(H, W, 3)
+    finally:
+        proc.stdout.close()
+        if proc.wait() != 0:
+            raise SystemExit("ffmpeg failed to decode the video")
+
+
+def analyze_events(cfg, video):
+    if not video.is_file():
+        raise SystemExit(f"events mode needs the source video, not found: {video}")
+    W, H = cfg["decode_size"]
+    per_slot = cfg["decode_fps"] // cfg["fps"]
+    cell_px = (H // ROWS) * (W // COLS)
+    r0, r1 = cfg["band_rows"]
+    band = np.zeros((ROWS, COLS), dtype=bool)
+    band[r0:r1 + 1] = True
+    band_px = np.zeros((H, W), dtype=bool)
+    band_px[r0 * (H // ROWS):(r1 + 1) * (H // ROWS)] = True
+
+    slots = []
+    prev_lit = None
+    acc = None
+    for j, frame in enumerate(decode_video(video, cfg["decode_fps"], cfg["decode_size"])):
+        rgb = frame.astype(np.int16)
+        lit = (rgb[..., 0] + rgb[..., 1]) // 2 - rgb[..., 2] > cfg["yellow_min"]
+        new = np.zeros_like(lit) if prev_lit is None else lit & ~prev_lit
+        prev_lit = lit
+        lum = luminance(rgb.astype(np.float32))
+
+        if j % per_slot == 0:
+            acc = {"new": np.zeros((ROWS, COLS)), "lit": np.zeros((ROWS, COLS)),
+                   "lum": 0.0, "rb": 0.0, "rb_n": 0}
+        acc["new"] += block_sum(new.astype(np.float32))
+        acc["lit"] += block_sum(lit.astype(np.float32))
+        acc["lum"] += lum[band_px].mean()
+        if lit.any():
+            r, b = rgb[..., 0][lit].astype(np.float32), rgb[..., 2][lit].astype(np.float32)
+            acc["rb"] += ((r - b) / np.maximum(r + b, 1.0)).sum()
+            acc["rb_n"] += int(lit.sum())
+        if j % per_slot == per_slot - 1:
+            slots.append(acc)
+    # A partial slot at the very end (less than 1 / fps seconds) is dropped.
+    # Lightning only ever adds light to the static map, so the emptiest data frame
+    # (the start of the video) is the zero point for brightness.
+    base_level = min(a["lum"] for a in slots) / per_slot
+    print(f"decoded {len(slots) * per_slot} frames at {cfg['decode_fps']} fps -> {len(slots)} data frames")
+
+    x = 2.0 * (np.arange(COLS) + 0.5) / COLS - 1.0
+    frames, prev = [], None
+    for t, a in enumerate(slots):
+        coverage = a["lit"] / (per_slot * cell_px)
+        grid = np.clip(coverage / cfg["coverage_scale"], 0, 1) * band
+        g = np.round(grid, 2)
+
+        new_share = a["new"] / cell_px
+        bursting = (new_share >= cfg["flash_share"]) & band
+        if bursting.any():
+            w = a["new"] * bursting
+            pan = float((w.sum(0) * x).sum() / w.sum())
+        else:
+            pan = pan_of(g, mask=band)
+
+        brightness = (a["lum"] / per_slot - base_level) / cfg["light_scale"]
+        warmth = 0.5 + 0.5 * a["rb"] / a["rb_n"] if a["rb_n"] else 0.5
+        frames.append(frame_record(
+            t, g,
+            brightness=brightness,
+            warmth=warmth,
+            density=(coverage[band] >= cfg["storm_share"]).mean(),
+            pan=pan,
+            motion=motion_of(g, prev, mask=band),
+            flashes=min(cfg["max_flashes"], int(bursting.sum())),
+            value=grid[band].mean(),
+        ))
+        prev = g
+    return frames
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("id", choices=sorted(DATASETS))
-    ap.add_argument("frames_dir")
+    ap.add_argument("frames_dir", help="frames folder, or the source video for events mode")
     ap.add_argument("--colorbar", help="colorbar image (colorbar-mode datasets only)")
     args = ap.parse_args()
     analyze(args.id, args.frames_dir, args.colorbar)

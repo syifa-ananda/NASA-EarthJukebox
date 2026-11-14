@@ -6,7 +6,7 @@ Every dataset used in the jukebox, with its source page and credit. Fill in each
 |----|---------|-------------------|-----------------|----------|--------|--------|
 | `sst` | Global Sea Surface Currents and Temperature | [SVS #3912](https://svs.gsfc.nasa.gov/3912/) | `ecco2_sst_flow.m4v` | `sst_ecco2_cbar.png`, 0–32 °C | NASA/Goddard Space Flight Center Scientific Visualization Studio | **real** |
 | `nightlights` | Change in Night Lights 2012–2023 (EIC version) | [SVS #5313](https://svs.gsfc.nasa.gov/5313/) | `nightlights_flat_series_and_change_wZooms_13_EIC_2160p30_h265.mp4` | none (luminance-based) | NASA's Scientific Visualization Studio. Data: NASA Black Marble (Suomi NPP VIIRS) | **real** (re-paced) |
-| `lightning` | Lightning Events Detected from the ISS 2017–2023 | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | mock |
+| `lightning` | Lightning Events Detected from the ISS 2017–2023 | [SVS #5011](https://svs.gsfc.nasa.gov/5011/) | `iss_lightning_sos_yearly_07312023_2048p60.mp4` | none (dot detection) | NASA's Scientific Visualization Studio. Data: Lightning Imaging Sensor (LIS) on the ISS | **real** |
 | `co2` | DYAMOND Global Carbon Dioxide | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | mock |
 | `aerosols` (stretch) | GEOS Aerosols | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | not started |
 
@@ -49,7 +49,18 @@ For each one, record: the exact page URL, the media file name and resolution dow
 - **Processing:** `python3 scripts/build_series.py nightlights` (stills, analysis frames, 1280×720 H.264 web video, about 0.5 MB); then `python3 src/analysis/analyze.py nightlights raw/nightlights/frames`.
 
 ### lightning
-- TODO
+- **Page:** https://svs.gsfc.nasa.gov/5011/ (SVS #5011)
+- **Credit:** NASA's Scientific Visualization Studio. Data: Lightning Imaging Sensor (LIS) on the International Space Station.
+- **Video:** `iss_lightning_sos_yearly_07312023_2048p60.mp4`, saved as `raw/lightning/source.mp4`. 4096×2048 Science On a Sphere flat map, H.264, 60 fps, 100.0 s (6002 frames).
+- **Data dates:** about March 2017 – July 2023, shown with a 10-day roving window (each flash stays on the map for 10 days of data). **The video has no date labels**, so we do not assign dates to frames. Activity peaks about every 12 s, once per northern summer (peaks near 16.5, 29, 41, 53, 64, 74.5 and 88.5 s), which fits roughly one second per month, but this is an estimate only.
+- **Colorbar:** none. Lightning is a single colour (yellow dots).
+- **Map:** full 2:1 equirectangular world, 180° W at the left edge to 180° E at the right, 90° N to 90° S (the dashed tropic lines sit exactly at ±23.4°). The grid therefore maps directly to latitude/longitude.
+- **Overlays / cropping:** none needed. No title, date label, legend or logo. Static overlays are the grey base map with country borders, a solid equator line, dashed tropic lines, and darker bands beyond about ±52° (outside what the ISS can see). None of them is yellow, so the colour test ignores them. Nothing is cropped or masked.
+- **Sections:** one continuous sequence. 0–3 s: empty map; 3–10 s: lightning builds up; 10–95 s: continuous; 95–100 s: fades out. All of it is used, at the original pace.
+- **What a flash looks like:** a yellow dot about 3–5 px across at 4096 px wide (around RGB 255, 255, 20 at the centre). It switches on, stays about 0.4–0.7 s and switches off, with no fade. The picture updates almost every 1/60 s; busy regions merge into large yellow blobs.
+- **Method (events mode):** the video is decoded at 30 fps and 2048×1024. A pixel is lightning when (R+G)/2 − B > 30. Each data frame (0.5 s) adds up its 15 decoded frames: *new lightning* = pixels that turn yellow from one decoded frame to the next; *coverage* = share of each grid cell that is yellow, averaged over the frame. `flashes` = cells with new lightning ≥ 20 % of the cell area (capped at 16). `pan` = centre of those cells weighted by new lightning, or the shared `pan_of(grid)` when there are none. Grid = coverage ÷ 0.5, rows 0–2 and 13–15 always 0 (outside ISS coverage). `value` = mean grid over rows 3–12. `brightness` = mean luminance of rows 3–12 above the emptiest frame (the start of the video), ÷ 10 luminance units. `density` = share of rows 3–12 cells with ≥ 2 % coverage. `motion` = shared definition. `warmth` = red-vs-blue balance of lightning pixels.
+- **Known limits:** from about 80 s on, fewer new dots appear per half second while coverage stays high, so there are fewer `flashes` in the last ~20 s.
+- **Processing:** `scripts/extract_frames.sh lightning 2 --video-only --video-fps 30` (web video 1440×720, 30 fps, H.264 CRF 23, no audio, faststart, 10.1 MB, 100.1 s; same timestamps as the source, so it stays in sync with the 200 data frames); then `python3 src/analysis/analyze.py lightning raw/lightning/source.mp4` (reads the video directly; no PNG frames are written).
 
 ### co2
 - TODO

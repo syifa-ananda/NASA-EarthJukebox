@@ -25,13 +25,13 @@
     {
       "id": "lightning",
       "title": "Lightning Events Detected from the ISS 2017–2023",
-      "description": "Lightning flashes recorded by an instrument on the International Space Station between 2017 and 2023. Each flash appears as a brief bright spot. Flashes come in sudden bursts, mostly over land in the tropics, and jump from place to place as storms form and fade.",
-      "colorMeaning": "bright white and blue spots = lightning flashes, dark = no lightning",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "Lightning flashes detected from space by an instrument on the International Space Station, from about 2017 to 2023. Each flash appears as a small yellow dot that stays for a moment and then disappears, so the map shows the last ten days of lightning as time moves forward. Most lightning strikes over land in the tropics, especially in central Africa, South America and Southeast Asia. Storm activity swells once a year, during each northern summer, when storms spread across North America, Europe and Asia. The station only sees between about 52 degrees north and south, so the far north and south stay empty.",
+      "colorMeaning": "yellow dots = lightning flashes from the last ten days; the grey map shows land and country borders, and the darker bands at the top and bottom are areas the space station cannot see",
+      "source": "https://svs.gsfc.nasa.gov/5011/",
+      "credit": "NASA's Scientific Visualization Studio. Data: Lightning Imaging Sensor (LIS) on the International Space Station",
       "features": "lightning/features.json",
       "video": "lightning/video.mp4",
-      "mock": true
+      "mock": false
     },
     {
       "id": "co2",

@@ -2,7 +2,7 @@
 
 This file describes how the Python analysis (Person 1) hands data to the audio engine (Person 2) and the UI (Person 3). **Please don't change the format without telling the whole team.** If you need a new field, ask and we'll add it to every dataset at once.
 
-`index.json` says which datasets are real: `"mock": false` means real SVS data (currently **sst** and **nightlights**), `"mock": true` means generated test data. Real and mock files have exactly the same shape, so code written against the mocks keeps working. Real files can have a different `frameCount` (sst has 133), so always read `frameCount` and never assume 60.
+`index.json` says which datasets are real: `"mock": false` means real SVS data (currently **sst**, **nightlights** and **lightning**), `"mock": true` means generated test data. Real and mock files have exactly the same shape, so code written against the mocks keeps working. Real files can have a different `frameCount` (sst has 133, lightning 200), so always read `frameCount` and never assume 60.
 
 ## 1. The manifest: `public/data/index.json`
 
@@ -45,7 +45,7 @@ Lists every dataset the jukebox can play.
 | `brightness` | 0–1 | mean luminance of the picture | overall loudness / filter brightness |
 | `warmth` | 0–1 | red-vs-blue balance (1 = very red/warm) | timbre, major vs minor feel |
 | `density` | 0–1 | share of the map that is bright/active | number of notes / layers |
-| `pan` | −1 to 1 | horizontal centre of activity (−1 = left/west, 1 = right/east) | stereo position |
+| `pan` | −1 to 1 | horizontal centre of activity (−1 = left/west, 1 = right/east). **Lightning is the one exception:** centre of the cells that flashed in this frame (see section 4) | stereo position |
 | `motion` | 0–1 | how much changed since the previous frame | rhythm speed, tremolo |
 | `flashes` | integer 0–16 | number of newly bright spots | percussion hits (lightning) |
 | `value` | 0–1 | the calibrated main quantity (e.g. normalised temperature) | pitch on a musical scale |
@@ -120,8 +120,18 @@ Paths are relative to the repo root, because the site is served with `python3 -m
 - `pan` is near the centre and drifts slightly right over time (−0.02 → +0.03) as Asia gets brighter.
 - `flashes` is always 0.
 
+**lightning is real data** (200 frames, 100 s at fps 2, the SVS video's own pacing, about 2017–2023):
+
+- **`flashes`** = number of grid cells where at least **20 % of the cell turned newly yellow within this half-second frame**, i.e. a storm bursting there; capped at 16. The video shows thousands of tiny strike dots at once, so `flashes` counts storm bursts, not single dots. Distribution over the 200 frames: 0 in 34 %, 1–4 in 39 %, 5–8 in 19 %, 9–16 in 8 % (median 1.5, mean 3.1). It changes by about 3 from frame to frame. The first ~5 s and the last ~20 s have few or no flashes (the video builds up and fades out, and new strikes arrive more slowly near the end).
+- **`pan` is lightning-specific.** On frames with `flashes > 0`, `pan` is the centre of **the cells that flashed**, weighted by how much new lightning each had, so a hit sounds where the storm burst. On frames with no flashes it falls back to the shared definition (`pan_of(grid)`: centre of cells above the median). Why: the Americas, Africa and Asia always have lightning at the same time, so the centre of *all* lightning hardly moves (about 0.0–0.16). Range −0.53 to +0.72, typically jumping about 0.12 between frames.
+- `value` = average lightning coverage over the rows the ISS can see (grid rows 3–12, about 52° N to 52° S): 0–0.13, median 0.07. It swells about every 12 s (one swell per northern summer).
+- Grid cell = share of the cell covered by lightning during the frame ÷ 0.5 (1.0 = half the cell covered). Rows 0–2 and 13–15 are always 0: the ISS can't see that far north or south. 71 % of cells are 0.
+- `brightness` = light added by lightning, above the empty map: 0 at the start, up to 0.50 (median 0.27).
+- `density` = share of visible cells with any storms (≥ 2 % coverage): 0–0.36.
+- `motion` = shared definition: 0–0.40, higher on burst frames (mean 0.22 when `flashes` ≥ 5, 0.10 when 0).
+- `warmth` ≈ 0.85 whenever there is lightning (the dots are yellow), 0.5 on the empty first frames.
+
 The other datasets are still mocks that imitate how the real data will behave:
-- **lightning**: low background. `flashes` jumps between 0 and 16, `pan` jumps around as storms move, `motion` spikes on burst frames.
 - **co2**: plumes drift west → east, so `pan` sweeps from about −0.7 to +0.6. `value` rises steadily from about 0.37 to 0.70.
 
 ## 5. Checking files
