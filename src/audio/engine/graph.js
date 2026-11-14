@@ -9,7 +9,7 @@
 // `duck` lowers only the music (e.g. while the audio legend plays).
 // `output` (soft clipper after the limiter) is the final node; recordings tap it.
 
-import Tone from '../tone.js';
+import { Tone } from '../tone.js';   // loaded by init() before anything here runs
 
 const KNEE = 0.5;      // -6 dBFS: below this the signal passes unchanged
 const CEILING = 0.89;  // -1 dBFS: the curve never goes above this

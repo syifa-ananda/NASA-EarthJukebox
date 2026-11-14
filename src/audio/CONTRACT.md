@@ -4,15 +4,15 @@ How the UI (Person 3) uses the audio engine, and what the engine needs from the 
 
 ## 1. Loading
 
-Tone.js **15.1.22** is vendored at `src/audio/vendor/Tone.js` (MIT, licence files alongside it). No `npm install` is needed and the site works offline. Import the engine as an ES module. It loads Tone.js by itself if the page hasn't already:
+Tone.js **15.1.22** is vendored at `src/audio/vendor/Tone.js` (MIT, licence files alongside it). No `npm install` is needed and the site works offline. Import the engine as an ES module:
 
 ```html
-<!-- optional: preload Tone.js so the first click starts faster -->
-<script src="src/audio/vendor/Tone.js"></script>
 <script type="module">
   import * as audio from './src/audio/engine/index.js';
 </script>
 ```
+
+**Don't add a `<script>` tag for `vendor/Tone.js`.** Loading Tone creates an AudioContext immediately, and browsers log "AudioContext was not allowed to start" if that happens before a click. The engine loads Tone itself on the first `init()`, which runs inside a click or key press. Until then the page has no AudioContext at all. Everything except sound works before `init()`: `loadPreset`, `loadDataset`, `playFrame`, `probe` (returns the value, `sounded: false`), `describeFrame` and `listPresets`.
 
 `package.json` lists `tone` as a devDependency only to record the version. Section 8 explains how to upgrade.
 
@@ -61,7 +61,8 @@ Each dataset uses only part of the 0–1 range (e.g. dark night-light maps have 
 - `pan` and `flashes` are not rescaled: one is a real position, the other a count.
 - `loadDataset(file)` = `loadPreset(file.dataset)` + `setRanges(analyzeRanges(file))`. `syncToVideo` calls it for you.
 - `setRanges(null)` turns normalization off; `getRanges()` returns the current ranges.
-- **Raw values are kept.** `describeFrame()` and the `value` in `probe()` results use the raw contract values; only the sound mapping sees normalized values.
+- **Words match the sound.** `describeFrame()` uses the same normalized values as the sound: its level words ("very low" … "very high") and "rising / falling pitch" are **relative to the current dataset's range**. "High night light" means bright for this dataset, and "rising pitch" only appears when the played note actually goes up. Without ranges it falls back to the raw values.
+- **Numbers stay raw.** Wherever an actual number is shown, such as the `value` in `probe()` results, it is the raw contract value.
 
 ## 5. API
 
@@ -79,7 +80,7 @@ All functions are named exports of `src/audio/engine/index.js`.
 | `setVolume(v)` | Master volume, `0` to `1`. |
 | `probe(x, y)` → `ProbeResult` | Explore mode: one short tone for cell `frame.grid[y][x]`. `x` = column 0–31 (west → east), `y` = row 0–15 (north → south). Column → stereo position, value → pitch. Returns `{ x, y, value, pan, midi, note, sounded }`; `value` is raw. Works while paused. |
 | `playLegend({ duration }?)` → `{ text, duration, sounded }` | Audio legend: plays the scale from the lowest to the highest value (same notes as the probe) in about 3 s, with the music turned down meanwhile. `text` is for screen readers. |
-| `describeFrame(features, preset?, prev?)` → `string` | Short sentence for an ARIA live region, e.g. `"high water temperature, rising pitch, panned left"`. |
+| `describeFrame(features, preset?, prev?)` → `string` | Short sentence for an ARIA live region, e.g. `"high water temperature, rising pitch, panned left"`. Words are relative to the current dataset's range (section 4). |
 | `startRecording()` / `stopRecording()` → `Promise<Blob>` | Records everything you hear. The blob is webm/opus in Chrome and Firefox, mp4 in Safari (check `blob.type`). `isRecording()`, `isRecordingSupported()`. |
 | `dispose()` | Stops everything and frees all audio nodes. `init()` can start again. |
 | `listPresets()`, `getPreset(id)`, `hasPreset(id)` | Preset info for menus; every preset has a `soundDescription` for screen readers. |
