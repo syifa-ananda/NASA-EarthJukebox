@@ -5,7 +5,7 @@ Every dataset used in the jukebox, with its source page and credit. Fill in each
 | id | Dataset | Source (SVS page) | Media file used | Colorbar | Credit | Status |
 |----|---------|-------------------|-----------------|----------|--------|--------|
 | `sst` | Global Sea Surface Currents and Temperature | [SVS #3912](https://svs.gsfc.nasa.gov/3912/) | `ecco2_sst_flow.m4v` | `sst_ecco2_cbar.png`, 0–32 °C | NASA/Goddard Space Flight Center Scientific Visualization Studio | **real** |
-| `nightlights` | Change in Night Lights 2012–2023 (EIC version) | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | mock |
+| `nightlights` | Change in Night Lights 2012–2023 (EIC version) | [SVS #5313](https://svs.gsfc.nasa.gov/5313/) | `nightlights_flat_series_and_change_wZooms_13_EIC_2160p30_h265.mp4` | none (luminance-based) | NASA's Scientific Visualization Studio. Data: NASA Black Marble (Suomi NPP VIIRS) | **real** (re-paced) |
 | `lightning` | Lightning Events Detected from the ISS 2017–2023 | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | mock |
 | `co2` | DYAMOND Global Carbon Dioxide | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | mock |
 | `aerosols` (stretch) | GEOS Aerosols | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | not started |
@@ -28,7 +28,25 @@ For each one, record: the exact page URL, the media file name and resolution dow
 - **Processing:** `scripts/extract_frames.sh sst 2` → 133 frames at 2 fps (`raw/sst/frames/0000.png` …); web video re-encoded to H.264 CRF 23, no audio, faststart, 640×320, about 8 MB. Features: `python3 src/analysis/analyze.py sst raw/sst/frames --colorbar raw/sst/colorbar.png`.
 
 ### nightlights
-- TODO
+- **Page:** https://svs.gsfc.nasa.gov/5313/ (SVS #5313)
+- **Credit:** NASA's Scientific Visualization Studio. Data: NASA Black Marble (Suomi NPP VIIRS).
+- **Video:** `nightlights_flat_series_and_change_wZooms_13_EIC_2160p30_h265.mp4`, saved as `raw/nightlights/source.mp4`. 7680×2160 (ultra-wide EIC display), HEVC, 30 fps, 43.3 s (1300 frames).
+- **Data dates:** annual night lights 2012–2023.
+- **Colorbar:** none for the yearly series, so `value` is luminance-based (see Method). The change map has a legend ("Change in Lighting Intensity from 2012 to 2023": orange = lights out, white = no change, purple = new lights) with no numbers; it is **not used** in `features.json`.
+- **Sections of the source video** (seconds / 0-based frame numbers at 30 fps):
+  - A. 0.00–9.2 s (frames 0–276): yearly series 2012→2023, world only. About 0.6 s (18 frames) per year; 2023 holds from 6.43 s. **This is the only section used.**
+  - 9.2–10.2 s: crossfade to the change map.
+  - B. 10.2–20.6 s (305–617): change map 2012→2023, world only.
+  - 20.6–22.5 s: fade back to 2012 and four zoom boxes appear.
+  - C. 22.5–36.4 s (675–1091): yearly series again, with fixed zoom boxes ("Western Europe", "Eastern Mediterranean", "Ukraine", "India") drawn over the map.
+  - D. 37.3–43.3 s (1119–1300): change map with the zoom boxes.
+- **Frame layout:** the 7680-px frame holds two copies of the world side by side (period ≈ 3840 px). We crop the left copy, **`crop=3840:2160:0:0`**, which runs from about 160°W eastward around the globe. It is 16:9, not 2:1, so latitude is only approximate in explore mode. The year label (x 3982–4149, y 1080–1135) is in the right copy and falls outside the crop. No title or logo.
+- **Timing was re-paced.** The original shows each year for only about 0.6 s (12 years in 6.4 s, then 2023 held for ~3 s). That is too fast for the music and gives uneven frame counts per year. We take **one still per year** from the middle of each year's hold in section A and rebuild the timeline at **2.5 s per year**, with a **0.5 s crossfade** into the next year: 30 s, 60 data frames at 2 fps (5 per year). The web video is built from the same timeline, so video and features line up exactly. **This is not the original SVS timing.**
+- **Source frame used for each year** (0-based, 30 fps): 2012 → 7, 2013 → 24, 2014 → 42, 2015 → 60, 2016 → 78, 2017 → 95, 2018 → 113, 2019 → 131, 2020 → 148, 2021 → 166, 2022 → 184, 2023 → 240.
+- **Method (light above the land base):** city lights are drawn on top of a static base map (black ocean, grey snow and ice, brownish deserts, dark forests) that is the same in every year. The base is estimated per pixel as the darkest value that pixel ever has, followed by a 31×31 px morphological opening (removes anything smaller than a city cluster). Light = luminance − base − 3 (noise margin). Neutral grey pixels (saturation < 0.12) are ignored: every light pixel is yellowish (saturation ≥ 0.19), while snow, ice and shaded relief are grey, and that is where the base estimate is least reliable.
+- **Fixed scale, same for all years:** a grid cell of 1.0 = an average of 30 luminance units of light above the base across the cell (the brightest cell in 2023 is 27.6, so 0.92). `brightness` = mean light over land pixels ÷ 30. `value` = mean of the land grid cells. `density` = share of land pixels with at least 10 units of light. `warmth` = light-weighted red-vs-blue balance of lit pixels. `flashes` = 0.
+- **Known limits:** dim lights over grey snow (e.g. northern Russia) are partly ignored, and a faint static residue remains over some deserts; both are the same every year, so they don't affect the trend.
+- **Processing:** `python3 scripts/build_series.py nightlights` (stills, analysis frames, 1280×720 H.264 web video, about 0.5 MB); then `python3 src/analysis/analyze.py nightlights raw/nightlights/frames`.
 
 ### lightning
 - TODO

@@ -14,13 +14,13 @@
     {
       "id": "nightlights",
       "title": "Change in Night Lights 2012–2023",
-      "description": "A view of Earth at night, seen from space, showing where city and town lights shine. Most of the land is dark, with bright clusters where people live. From 2012 to 2023 many areas grow brighter and new lights appear, showing where cities and towns have expanded.",
-      "colorMeaning": "bright yellow and white = strong night lights, dark = little or no light",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "Earth at night, seen from space by the Suomi NPP satellite, one picture for each year from 2012 to 2023. The oceans and most of the land are dark, and city lights shine where people live: the eastern United States, Europe, India, China and Japan are the brightest. Each year is shown for two and a half seconds, and the lights slowly spread and grow brighter. Comparing 2012 with 2023, lights grew most across China, India, Southeast Asia and the Middle East, while parts of Western Europe, such as the United Kingdom and France, became a little dimmer.",
+      "colorMeaning": "yellow and white = city lights (brighter = more light), black = ocean or unlit land; the background map shows grey snow and ice and brown deserts",
+      "source": "https://svs.gsfc.nasa.gov/5313/",
+      "credit": "NASA's Scientific Visualization Studio. Data: NASA Black Marble (Suomi NPP VIIRS)",
       "features": "nightlights/features.json",
       "video": "nightlights/video.mp4",
-      "mock": true
+      "mock": false
     },
     {
       "id": "lightning",

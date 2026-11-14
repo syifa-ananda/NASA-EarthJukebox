@@ -2,7 +2,7 @@
 
 This file describes how the Python analysis (Person 1) hands data to the audio engine (Person 2) and the UI (Person 3). **Please don't change the format without telling the whole team.** If you need a new field, ask and we'll add it to every dataset at once.
 
-`index.json` says which datasets are real: `"mock": false` means real SVS data (currently **sst**), `"mock": true` means generated test data. Real and mock files have exactly the same shape, so code written against the mocks keeps working. Real files can have a different `frameCount` (sst has 133), so always read `frameCount` and never assume 60.
+`index.json` says which datasets are real: `"mock": false` means real SVS data (currently **sst** and **nightlights**), `"mock": true` means generated test data. Real and mock files have exactly the same shape, so code written against the mocks keeps working. Real files can have a different `frameCount` (sst has 133), so always read `frameCount` and never assume 60.
 
 ## 1. The manifest: `public/data/index.json`
 
@@ -111,10 +111,16 @@ Paths are relative to the repo root, because the site is served with `python3 -m
 - `density` = share of ocean area warmer than 19.2 °C (about 0.58).
 - `flashes` is always 0.
 
-The other datasets are still mocks that imitate how the real data will behave:
+**nightlights is real data** (60 frames, 30 s at fps 2; one year every 2.5 s, re-paced from the SVS video, see `docs/sources.md`):
 
-- **sst (old mock)**: smooth and slow. Warm band in the middle rows (equator) drifting north/south, a gentle warm/cool cycle, low `motion`, `pan` near 0, no flashes.
-- **nightlights**: dark map with bright clusters mostly on the left/centre (`pan` ≈ −0.2). `brightness`, `density` and `value` rise steadily across the 60 frames (2012 → 2023).
+- Frames `5k` to `5k+4` belong to year `2012 + k`. Frame `5k+4` is the crossfade into the next year, so `motion` is non-zero only on frames `5k+4` and `5k+5`; everything else holds still within a year.
+- `brightness` (0.090 → 0.115) and `value` (0.054 → 0.068) both measure light above the land base on one fixed scale. They rise about 27 % from 2012 to 2023, with a small dip in 2020 and a jump in 2022–2023.
+- Grid: 1.0 = very bright city area (the brightest cell is 0.92). 67 % of cells are 0, which means ocean **or** unlit land. Lit areas are mostly 0.01–0.5.
+- `warmth` is nearly constant (about 0.62): the lights are always the same yellow-white.
+- `pan` is near the centre and drifts slightly right over time (−0.02 → +0.03) as Asia gets brighter.
+- `flashes` is always 0.
+
+The other datasets are still mocks that imitate how the real data will behave:
 - **lightning**: low background. `flashes` jumps between 0 and 16, `pan` jumps around as storms move, `motion` spikes on burst frames.
 - **co2**: plumes drift west → east, so `pan` sweeps from about −0.7 to +0.6. `value` rises steadily from about 0.37 to 0.70.
 
