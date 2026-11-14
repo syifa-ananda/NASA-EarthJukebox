@@ -1,0 +1,252 @@
+/* Earth Information Jukebox UI styles.
+   Colour tokens are checked for WCAG AA: text >= 4.5:1, large text and
+   UI boundaries / focus ring >= 3:1 against their backgrounds. */
+
+:root {
+  --bg: #0b1020;
+  --surface: #141a2e;
+  --surface-2: #1d2541;
+  --text: #eef1f8;
+  --text-muted: #b4bdd3;
+  --accent: #8ccbff;
+  --accent-strong: #c4e4ff;
+  --border: #6f7ba0;
+  --focus: #ffd166;
+  --danger: #ff9b9b;
+
+  --radius: 10px;
+  --gap: 1rem;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --surface-2: #e9edf6;
+    --text: #121829;
+    --text-muted: #46506a;
+    --accent: #0b4f9c;
+    --accent-strong: #073a75;
+    --border: #6b7590;
+    --focus: #b0400b;
+    --danger: #a3171d;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+h1, h2, h3 {
+  line-height: 1.25;
+  margin: 0 0 0.5em;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+/* ---------- Focus: always visible for keyboard users ---------- */
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Programmatic focus targets (e.g. the skip-link destination) get a subtle
+   ring so sighted keyboard users can see where they landed. */
+[tabindex="-1"]:focus-visible {
+  outline-style: dashed;
+}
+
+/* ---------- Utilities ---------- */
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* ---------- Skip link ---------- */
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--focus);
+  color: #000;
+  font-weight: 700;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* ---------- Header / footer ---------- */
+
+.site-header {
+  padding: 1.5rem 0 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-title {
+  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+}
+
+.tagline {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+}
+
+.nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer {
+  margin-top: 2rem;
+  padding: 1rem 0 2rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- Layout ----------
+   DOM order = tab order = reading order. The grid only places panels;
+   it never reorders them. */
+
+.layout {
+  display: grid;
+  gap: var(--gap);
+  padding-top: var(--gap);
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "records"
+    "player"
+    "info"
+    "about";
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr) minmax(220px, 1.1fr);
+    grid-template-areas:
+      "records player info"
+      "about   about  about";
+    align-items: start;
+  }
+}
+
+.records { grid-area: records; }
+.player  { grid-area: player; }
+.info    { grid-area: info; }
+.about   { grid-area: about; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  min-width: 0;
+}
+
+.panel h2 {
+  font-size: 1.15rem;
+}
+
+/* ---------- Viewer ---------- */
+
+.viewer {
+  position: relative;
+  aspect-ratio: 2 / 1;
+  background: #000;
+  border-radius: calc(var(--radius) - 4px);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.viewer-status {
+  margin: 0;
+  padding: 1rem;
+  color: #e6e9f2;
+  text-align: center;
+}
+
+.viewer-status.error {
+  color: #ffb4b4;
+}
+
+/* ---------- Motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Windows High Contrast / forced colours ---------- */
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+
+  .panel {
+    border-color: CanvasText;
+  }
+}

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Earth Information Jukebox</title>
+  <meta name="description" content="Listen to NASA Earth science visualizations as music, with full keyboard and screen-reader support.">
+  <meta name="color-scheme" content="dark light">
+  <link rel="stylesheet" href="src/ui/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#player">Skip to player</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <h1 class="site-title">The Earth Information Jukebox</h1>
+      <p class="tagline">Pick a record. Watch NASA's view of Earth and hear it as music.</p>
+      <nav aria-label="Page sections">
+        <ul class="nav-list">
+          <li><a href="#records">Records</a></li>
+          <li><a href="#player">Player</a></li>
+          <li><a href="#about">How to listen</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="wrap layout">
+    <section id="records" class="panel records" aria-labelledby="records-heading">
+      <h2 id="records-heading">Choose a record</h2>
+      <div id="record-list">
+        <p class="muted">Loading records…</p>
+      </div>
+    </section>
+
+    <section id="player" class="panel player" tabindex="-1" aria-labelledby="player-heading">
+      <h2 id="player-heading">Player<span class="visually-hidden">:</span> <span class="muted" id="now-playing">No record selected</span></h2>
+      <div id="viewer" class="viewer">
+        <p id="viewer-status" class="viewer-status" role="status">Loading datasets…</p>
+      </div>
+      <div id="transport"></div>
+    </section>
+
+    <aside id="info" class="panel info" aria-labelledby="info-heading">
+      <h2 id="info-heading">About this record</h2>
+      <div id="info-body">
+        <p class="muted">Choose a record to see what it shows and how it sounds.</p>
+      </div>
+    </aside>
+
+    <section id="about" class="panel about" aria-labelledby="about-heading">
+      <h2 id="about-heading">How to listen</h2>
+      <div id="about-body">
+        <p class="muted">Coming soon.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Visualizations: NASA Scientific Visualization Studio and the NASA Earth Information Center. Built for the NASA Space Apps Challenge 2026.</p>
+    </div>
+  </footer>
+
+  <!-- Single polite live region for narration. Filled by src/ui/narrator.js. -->
+  <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="src/ui/main.js"></script>
+</body>
+</html>
