@@ -2,7 +2,7 @@
 
 This file describes how the Python analysis (Person 1) hands data to the audio engine (Person 2) and the UI (Person 3). **Please don't change the format without telling the whole team.** If you need a new field, ask and we'll add it to every dataset at once.
 
-`index.json` says which datasets are real: `"mock": false` means real SVS data (currently **sst**, **nightlights** and **lightning**), `"mock": true` means generated test data. Real and mock files have exactly the same shape, so code written against the mocks keeps working. Real files can have a different `frameCount` (sst has 133, lightning 200), so always read `frameCount` and never assume 60.
+`index.json` says which datasets are real: `"mock": false` means real SVS data. **All four datasets (sst, nightlights, lightning, co2) are now real.** `"mock": true` would mean generated test data (`scripts/make_mock.py` can still make some for testing). Real and mock files have exactly the same shape. Real files have different `frameCount`s (sst 133, nightlights 60, lightning 200, co2 78), so always read `frameCount` and never assume 60.
 
 ## 1. The manifest: `public/data/index.json`
 
@@ -45,7 +45,7 @@ Lists every dataset the jukebox can play.
 | `brightness` | 0–1 | mean luminance of the picture | overall loudness / filter brightness |
 | `warmth` | 0–1 | red-vs-blue balance (1 = very red/warm) | timbre, major vs minor feel |
 | `density` | 0–1 | share of the map that is bright/active | number of notes / layers |
-| `pan` | −1 to 1 | horizontal centre of activity (−1 = left/west, 1 = right/east). **Lightning is the one exception:** centre of the cells that flashed in this frame (see section 4) | stereo position |
+| `pan` | −1 to 1 | horizontal centre of activity (−1 = left/west, 1 = right/east). **Exceptions:** lightning uses the centre of the cells that flashed in this frame; co2 is a position on screen and includes the camera turning (see section 4) | stereo position |
 | `motion` | 0–1 | how much changed since the previous frame | rhythm speed, tremolo |
 | `flashes` | integer 0–16 | number of newly bright spots | percussion hits (lightning) |
 | `value` | 0–1 | the calibrated main quantity (e.g. normalised temperature) | pitch on a musical scale |
@@ -61,6 +61,8 @@ Precision: features have up to 3 decimals, grid cells up to 2 decimals.
 - Each cell is that area's `value`, on the same 0–1 scale as the frame's `value`.
 
 So a cursor at column `x` (0–31), row `y` (0–15) reads `frame.grid[y][x]`.
+
+> **co2 is different: its grid is a screen grid, not a map.** The co2 video is a 3D globe seen by a turning camera, so its 32 × 16 grid covers the **video frame** (each cell is 40 × 45 px of the 1280 × 720 video). Row 0 is the top of the screen and column 0 the left edge, which are only roughly north and west, and a given cell shows a different place on Earth as the globe turns. Cells outside the globe are always 0. Explore mode still works the same way ("hear what is under the cursor right now"), but the UI should not describe co2 cells as latitudes/longitudes.
 
 ## 3. JavaScript example
 
@@ -131,8 +133,15 @@ Paths are relative to the repo root, because the site is served with `python3 -m
 - `motion` = shared definition: 0–0.40, higher on burst frames (mean 0.22 when `flashes` ≥ 5, 0.10 when 0).
 - `warmth` ≈ 0.85 whenever there is lightning (the dots are yellow), 0.5 on the empty first frames.
 
-The other datasets are still mocks that imitate how the real data will behave:
-- **co2**: plumes drift west → east, so `pan` sweeps from about −0.7 to +0.6. `value` rises steadily from about 0.37 to 0.70.
+**co2 is real data** (78 frames, 39 s at fps 2, the SVS video's own pace, 14 Jan – 3 Mar 2020). It is a **globe tour**, not a map:
+
+- **Camera:** the camera turns westward about 190°: East Asia → India and the Indian Ocean → Africa → Atlantic → South America (see the time table in `docs/sources.md`). So the features describe **what is facing the viewer**, and they change as new regions come into view. They do not show a global rise in CO₂ (a rise over these two months is far too small to see on this colour scale) or wind direction.
+- **Grid** = screen grid (see section 2). Each cell = how much high CO₂ is visible there: the average colorbar position of readable pixels, with everything else counted as 0. 0–0.62; 89 % of cells are 0 (outside the globe, or nothing readable).
+- **`value`** = the same over the whole visible disc. Relative only: **no ppm** (the SVS colorbar has no numbers). Only the opaque top of the colorbar (0.6–1.0, tan → orange → red) can be read; lower CO₂ is a faint haze that can't be separated from the land. Range 0.018–0.049 (median 0.032): highest over East Asia at the start and South America at the end, lowest while Africa and the Atlantic face the camera (13–29 s).
+- **`density`** = share of the visible disc showing high CO₂: 0.026–0.072.
+- **Daily averaging:** each frame is the average of one model day (24 source frames around it). In the video, CO₂ near the ground pulses every 0.8 s (it builds up at night and fades in daytime); the data deliberately smooths this out, so values move slowly (at most 0.005 between frames).
+- **`pan` and `motion` include the camera turn.** `pan` is the screen position of the high-CO₂ cells (shared `pan_of`), range −0.24 to +0.22. It does **not** follow the wind: patches drift right as the globe turns, then new ones enter on the left. `motion` (shared definition, 0–0.15) is partly the camera moving.
+- `brightness` 0.067–0.116 and `warmth` 0.62–0.67 describe the whole visible disc. `flashes` is always 0.
 
 ## 5. Checking files
 

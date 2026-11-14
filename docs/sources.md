@@ -1,13 +1,13 @@
 # Sources and Credits
 
-Every dataset used in the jukebox, with its source page and credit. Fill in each TODO when the real media is downloaded.
+Every dataset used in the jukebox, with its source page and credit.
 
 | id | Dataset | Source (SVS page) | Media file used | Colorbar | Credit | Status |
 |----|---------|-------------------|-----------------|----------|--------|--------|
 | `sst` | Global Sea Surface Currents and Temperature | [SVS #3912](https://svs.gsfc.nasa.gov/3912/) | `ecco2_sst_flow.m4v` | `sst_ecco2_cbar.png`, 0–32 °C | NASA/Goddard Space Flight Center Scientific Visualization Studio | **real** |
 | `nightlights` | Change in Night Lights 2012–2023 (EIC version) | [SVS #5313](https://svs.gsfc.nasa.gov/5313/) | `nightlights_flat_series_and_change_wZooms_13_EIC_2160p30_h265.mp4` | none (luminance-based) | NASA's Scientific Visualization Studio. Data: NASA Black Marble (Suomi NPP VIIRS) | **real** (re-paced) |
 | `lightning` | Lightning Events Detected from the ISS 2017–2023 | [SVS #5011](https://svs.gsfc.nasa.gov/5011/) | `iss_lightning_sos_yearly_07312023_2048p60.mp4` | none (dot detection) | NASA's Scientific Visualization Studio. Data: Lightning Imaging Sensor (LIS) on the ISS | **real** |
-| `co2` | DYAMOND Global Carbon Dioxide | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | mock |
+| `co2` | DYAMOND Global Carbon Dioxide | [SVS #5196](https://svs.gsfc.nasa.gov/5196/) | `dyamondPointCloud_12-1-2023b_dyamond_co2_anim_globe_orbit_1080p30_h265.mp4` | `dyamondCbar_6-27-2024a.png` (no ppm labels) | NASA's Scientific Visualization Studio. Data: DYAMOND GEOS model | **real** (globe tour) |
 | `aerosols` (stretch) | GEOS Aerosols | TODO | TODO | TODO | NASA/SVS (TODO: full credit line from page) | not started |
 
 ## Notes per dataset
@@ -63,7 +63,27 @@ For each one, record: the exact page URL, the media file name and resolution dow
 - **Processing:** `scripts/extract_frames.sh lightning 2 --video-only --video-fps 30` (web video 1440×720, 30 fps, H.264 CRF 23, no audio, faststart, 10.1 MB, 100.1 s; same timestamps as the source, so it stays in sync with the 200 data frames); then `python3 src/analysis/analyze.py lightning raw/lightning/source.mp4` (reads the video directly; no PNG frames are written).
 
 ### co2
-- TODO
+- **Page:** https://svs.gsfc.nasa.gov/5196/ (SVS #5196, "DYAMOND Global Carbon Dioxide")
+- **Credit:** NASA's Scientific Visualization Studio. Data: DYAMOND GEOS model (global CO₂, January–March 2020).
+- **Video:** `dyamondPointCloud_12-1-2023b_dyamond_co2_anim_globe_orbit_1080p30_h265.mp4`, saved as `raw/co2/source.mp4`. 1920×1080, HEVC, 30 fps, 39.2 s (1176 frames). A 3D globe with the camera orbiting; **not a flat map**. The SVS page offers no flat-map or fixed-camera version (its other videos are zooms on the US and a fly-through).
+- **Data dates:** the video has a date label, from "14 Jan 2020 22:00:00.000" to "03 Mar 2020 08:00", about one model hour per video frame.
+- **Colorbar:** `dyamondCbar_6-27-2024a.png`, saved as `raw/co2/colorbar.png`. The strip is at x 239–1681, y 324–539 of the 1920×1080 image. **It has no ppm labels**, and the SVS page gives no range either (only "Global CO2 ppm"), so `value` is a relative 0–1 position on the colorbar, not ppm. The strip shows colour *and* opacity: 0–0.25 grey → white, opacity rising from about 0 to 0.5; 0.25–0.5 white → cream, about 50 % opaque; from about 0.6 fully opaque tan → yellow-orange → orange → red at 1.0. Unlabelled ticks sit at 0, 0.5, 0.75 and 1.0.
+- **Overlays / masking:** the date label (bottom right, about x 1551–1881, y 1018–1039; masked with padding as x 1520–1910, y 1005–1055 because its width varies). Only pixels inside the globe disc are analysed (centre about (955, 538), radius about 468 px at 1920×1080; the outer 2 % is skipped because of the bright limb). No cropping.
+- **Camera (time → region facing the viewer):**
+
+  | Video time | Dates (approx.) | Facing |
+  |---|---|---|
+  | 0–7 s | 14–23 Jan | East Asia, Southeast Asia and Australia (about 120° E) |
+  | 7–13 s | 23–31 Jan | India and the Indian Ocean |
+  | 13–23 s | 31 Jan – 12 Feb | Africa (east first, then west) |
+  | 23–29 s | 12–20 Feb | Gulf of Guinea and the Atlantic Ocean |
+  | 29–39 s | 20 Feb – 3 Mar | South America and the Amazon (about 70° W at the end) |
+
+  The camera turns about 190° westward in total and tilts slightly from a northern view toward the equator. The globe itself does not move or zoom on screen.
+- **Daily pulse:** high CO₂ near the ground (Amazon, central Africa, Southeast Asia) grows and fades once per model day, every 24 frames (0.8 s), swinging between about 0.2 % and 9 % of the visible disc.
+- **Method (globe mode):** decoded at 1280×720 (the web video size). A pixel inside the disc is read when it is bright enough (max channel ≥ 60), saturated (≥ 0.45) and its hue lies on the opaque part of the colorbar; its colorbar position (0.6–1.0) comes from nearest-hue lookup (the colorbar hue is flat below 0.6, so tan reads as 0.6). All other disc pixels count as 0. Grid = average level per screen cell (40 × 45 px) over the disc pixels in it; `value` = average level over the disc; `density` = share of the disc that is readable; `brightness` = mean luminance of the disc; `warmth` = red-vs-blue balance of the disc. Each data frame averages the 24 source frames (one model day) centred on it. `pan` and `motion` use the shared definitions on the screen grid, so they include the camera turn. `flashes` = 0.
+- **Known limits:** relative values only (no ppm); low and medium CO₂ can't be read; the numbers follow which region faces the camera, not a global trend; the grid is a screen grid, not a map.
+- **Processing:** `scripts/extract_frames.sh co2 2 --video-only` (web video 1280×720, 30 fps, H.264 CRF 23, no audio, faststart, 3.5 MB, 39.2 s; same frames and timing as the source); then `python3 src/analysis/analyze.py co2 raw/co2/source.mp4 --colorbar raw/co2/colorbar.png`.
 
 ### Tools
 - Tone.js for audio synthesis (MIT licence).

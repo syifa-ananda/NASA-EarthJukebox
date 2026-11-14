@@ -5,15 +5,17 @@ Usage:
   python3 src/analysis/analyze.py sst raw/sst/frames --colorbar raw/sst/colorbar.png
   python3 src/analysis/analyze.py nightlights raw/nightlights/frames
   python3 src/analysis/analyze.py lightning raw/lightning/source.mp4
+  python3 src/analysis/analyze.py co2 raw/co2/source.mp4 --colorbar raw/co2/colorbar.png
 
 Frames are 0000.png, 0001.png, ... at the dataset fps, from scripts/extract_frames.sh
-(sst) or scripts/build_series.py (nightlights). Lightning is read straight from the
-video instead (see events mode below).
+(sst) or scripts/build_series.py (nightlights). Lightning and co2 are read straight
+from the video instead (see events and globe modes below).
 
-Each dataset uses one of three modes:
+Each dataset uses one of four modes:
   "colorbar"  value is read from a colorbar (sst)
   "light"     no colorbar; value is light above the static base map (nightlights)
   "events"    short-lived dots counted as they appear (lightning)
+  "globe"     a rotating 3D globe, measured on screen (co2)
 
 How the sst calibration works (colorbar mode)
 -----------------------------
@@ -52,6 +54,20 @@ DECODE_FPS / fps decoded frames inside its time slot:
 A grid cell "flashes" when at least flash_share of its area turns newly yellow within
 one data frame (a storm bursting). flashes = number of such cells, capped at 16, and
 pan = centre of those cells, so the percussion sounds where the storms burst.
+
+How co2 is measured (globe mode)
+--------------------------------
+The co2 video is a 3D globe with the camera turning westward about 190 degrees
+(East Asia -> India -> Africa -> Atlantic -> South America). There is no flat map,
+so everything is measured ON SCREEN: the grid is a 32 x 16 grid over the video
+frame (not a latitude/longitude map), only pixels inside the globe disc count, and
+pan/motion include the camera turn. CO2 is drawn semi-transparent: the lower half
+of the colorbar is a faint grey/white haze that cannot be told apart from bright
+land or dark ocean, so only the opaque top of the scale is read, by hue (tan at
+0.6 -> red at 1.0; the colorbar hue is flat below 0.6, so tan counts as 0.6).
+Anything else in the disc counts as 0 ("low or not readable"). The model shows one
+hour per video frame, and CO2 near the ground pulses every model day (24 frames),
+so each data frame is the average of the 24 source frames (one day) around it.
 """
 
 import argparse
@@ -108,6 +124,21 @@ DATASETS = {
         "storm_share": 0.02,       # cell coverage that counts as "storms present" (density)
         "band_rows": (3, 12),      # grid rows the ISS can see (about 52 N to 52 S), inclusive
         "light_scale": 10.0,       # luminance units above the base map that map to 1.0
+    },
+    "co2": {
+        "mode": "globe",
+        "title": "DYAMOND Global Carbon Dioxide",
+        "fps": 2,
+        "source_fps": 30,
+        "decode_size": (1280, 720),          # same as the web video: grid cells are 40 x 45 px
+        "day_frames": 24,                    # one model day = 24 source frames (1 h each)
+        "mask_boxes": [(1520, 1005, 1910, 1055)],   # date label (padded: its width varies), 1920x1080 px
+        "disc_shrink": 0.98,                 # ignore the outer 2 % of the disc (limb glow)
+        "colorbar_strip": (239, 324, 1681, 539),    # x0, y0, x1, y1 of the strip in the colorbar image
+        "readable_from": 0.6,                # colorbar hue is flat (tan) below this position
+        "hue_tol": 4 / 360,
+        "min_value": 60,                     # 0-255: darker pixels are too faint to read
+        "min_saturation": 0.45,              # greyer pixels are haze, land or glare
     },
 }
 
@@ -218,6 +249,11 @@ def analyze(ds_id, frames_dir, colorbar):
     cfg = DATASETS[ds_id]
     if cfg["mode"] == "events":
         write_features(ds_id, cfg, analyze_events(cfg, Path(frames_dir)))
+        return
+    if cfg["mode"] == "globe":
+        if colorbar is None:
+            raise SystemExit("this dataset needs --colorbar")
+        write_features(ds_id, cfg, analyze_globe(cfg, Path(frames_dir), colorbar))
         return
     frame_paths = sorted(Path(frames_dir).glob("*.png"))
     if not frame_paths:
@@ -502,6 +538,103 @@ def analyze_events(cfg, video):
             motion=motion_of(g, prev, mask=band),
             flashes=min(cfg["max_flashes"], int(bursting.sum())),
             value=grid[band].mean(),
+        ))
+        prev = g
+    return frames
+
+
+# ---------------------------------------------------------------------------
+# Globe mode (co2)
+# ---------------------------------------------------------------------------
+
+def read_colorbar_range(path, strip_box, lo):
+    """Hue scale of the colorbar from position lo to 1.0 (strip given explicitly).
+
+    Hue is forced to be non-increasing so the lookup is one-to-one; the raw strip
+    wobbles by under 1 degree where it is flat.
+    """
+    x0, y0, x1, y1 = strip_box
+    img = np.asarray(Image.open(path).convert("RGBA"), dtype=np.float32)
+    # Skip the edge rows and the tick marks along the bottom of the strip.
+    strip = img[y0 + 6:y1 - 24, x0:x1 + 1, :3].mean(0)
+    positions = np.linspace(0.0, 1.0, len(strip))
+    keep = positions >= lo
+    hues = unwrap_red(hsv(strip[keep])[0])
+    hues = np.minimum.accumulate(hues)
+    print(f"colorbar: strip x {x0}-{x1}, readable {lo:.2f}-1.00, hue {hues[0] * 360:.1f} -> {hues[-1] * 360:.1f} deg")
+    return hues, positions[keep]
+
+
+def analyze_globe(cfg, video, colorbar):
+    if not video.is_file():
+        raise SystemExit(f"globe mode needs the source video, not found: {video}")
+    W, H = cfg["decode_size"]
+    sx, sy = W / 1920, H / 1080
+    hues, positions = read_colorbar_range(colorbar, cfg["colorbar_strip"], cfg["readable_from"])
+    lo_h, hi_h = hues.min(), hues.max()
+
+    keep = np.ones((H, W), dtype=bool)
+    for x0, y0, x1, y1 in cfg["mask_boxes"]:
+        keep[int(y0 * sy):int(y1 * sy) + 2, int(x0 * sx):int(x1 * sx) + 2] = False
+
+    # Pass 1: the globe disc (it does not move or zoom). Brightest-ever pixels outside
+    # the masks give its bounding box.
+    brightest = None
+    for frame in decode_video(video, 1, cfg["decode_size"]):
+        lum = luminance(frame.astype(np.float32))
+        brightest = lum if brightest is None else np.maximum(brightest, lum)
+    ys, xs = np.where((brightest > 6) & keep)
+    cx, cy = (xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2
+    radius = min(xs.max() - xs.min(), ys.max() - ys.min()) / 2 * cfg["disc_shrink"]
+    yy, xx = np.mgrid[0:H, 0:W]
+    disc = ((xx - cx) ** 2 + (yy - cy) ** 2 <= radius ** 2) & keep
+    disc_px = block_sum(disc.astype(np.float32))
+    disc_cells = disc_px > 0
+    print(f"globe disc: centre ({cx:.0f}, {cy:.0f}), radius {radius:.0f} px at {W}x{H}; {disc_cells.sum()} grid cells")
+
+    # Pass 2: every source frame.
+    grids, vals, dens, bright, warm = [], [], [], [], []
+    for frame in decode_video(video, cfg["source_fps"], cfg["decode_size"]):
+        rgb = frame.astype(np.float32)
+        h, s, v = hsv(rgb)
+        h = unwrap_red(h)
+        readable = (disc & (v >= cfg["min_value"]) & (s >= cfg["min_saturation"])
+                    & (h >= lo_h - cfg["hue_tol"]) & (h <= hi_h + cfg["hue_tol"]))
+        level = np.where(readable, np.interp(np.clip(h, lo_h, hi_h), hues[::-1], positions[::-1]), 0.0)
+        grids.append(np.where(disc_cells, block_sum(level) / np.maximum(disc_px, 1), 0.0))
+        vals.append(level[disc].mean())
+        dens.append(readable[disc].mean())
+        bright.append(luminance(rgb)[disc].mean() / 255.0)
+        lit = disc & (v > 20)
+        r, b = rgb[..., 0][lit], rgb[..., 2][lit]
+        warm.append(0.5 + 0.5 * ((r - b) / np.maximum(r + b, 1.0)).mean() if lit.any() else 0.5)
+
+    n_src = len(grids)
+    per_slot = cfg["source_fps"] // cfg["fps"]
+    day = cfg["day_frames"]
+    n_frames = n_src // per_slot
+    grids = np.stack(grids)
+    series = {k: np.array(a) for k, a in
+              (("value", vals), ("density", dens), ("brightness", bright), ("warmth", warm))}
+    print(f"decoded {n_src} frames -> {n_frames} data frames, each a {day}-frame (one model day) average")
+
+    frames, prev = [], None
+    for t in range(n_frames):
+        # Centre of slot t in source frames is per_slot * t + per_slot / 2; take one
+        # day around it, shifted inward at the very start and end of the video.
+        start = int(round(per_slot * t + per_slot / 2 - day / 2))
+        start = min(max(start, 0), n_src - day)
+        sl = slice(start, start + day)
+        g = np.round(grids[sl].mean(0), 2)
+        frames.append(frame_record(
+            t, g,
+            brightness=series["brightness"][sl].mean(),
+            warmth=series["warmth"][sl].mean(),
+            density=series["density"][sl].mean(),
+            pan=pan_of(g, mask=disc_cells),
+            motion=motion_of(g, prev, mask=disc_cells),
+            flashes=0,
+            value=series["value"][sl].mean(),
         ))
         prev = g
     return frames

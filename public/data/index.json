@@ -36,13 +36,13 @@
     {
       "id": "co2",
       "title": "DYAMOND Global Carbon Dioxide",
-      "description": "A computer model of carbon dioxide in Earth's atmosphere. Plumes of carbon dioxide rise from sources on the ground and are carried by the wind, mostly from west to east. Over time the overall amount of carbon dioxide keeps rising.",
-      "colorMeaning": "bright yellow and white = more carbon dioxide, dark = less carbon dioxide",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "A computer model of carbon dioxide in the air, shown on a turning globe from 14 January to 3 March 2020. The camera slowly travels westward around the Earth: it starts over East Asia and Australia, passes India and the Indian Ocean, then Africa, crosses the Atlantic Ocean and ends over South America. Orange and red patches show where carbon dioxide near the ground is highest, mostly over the forests of central Africa and the Amazon, and over East Asia. These patches pulse once every model day, building up at night and fading in the daytime, which looks like a quick flicker in the video. The sound follows what is facing you on the globe, so it changes as the camera moves to new regions.",
+      "colorMeaning": "orange to red = high carbon dioxide (red is highest); lower amounts are a faint grey or white haze; the globe underneath shows land, ocean and country borders",
+      "source": "https://svs.gsfc.nasa.gov/5196/",
+      "credit": "NASA's Scientific Visualization Studio. Data: DYAMOND GEOS model",
       "features": "co2/features.json",
       "video": "co2/video.mp4",
-      "mock": true
+      "mock": false
     }
   ]
 }
