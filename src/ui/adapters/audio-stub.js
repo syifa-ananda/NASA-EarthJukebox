@@ -1,7 +1,8 @@
-// Fallback audio engine, used only if Person 2's Tone.js engine fails to load.
+// Fallback audio engine, used only if Person 2's Tone.js engine can't start.
 // Uses only the built-in Web Audio API. It is intentionally simple: one
-// pentatonic note per frame, a click for flashes, and a short blip for
-// probe() / preview(). See ./audio.js for the interface.
+// pentatonic note per frame, a click for flashes, a short blip for probe() /
+// preview(), a rising scale for the legend, and a simple video sync.
+// Same interface as the engine path in ./audio.js.
 
 // C major pentatonic, two octaves (MIDI note numbers).
 const SCALE = [60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84];
@@ -29,15 +30,15 @@ function noteFor(value) {
   return SCALE[Math.round(v * (SCALE.length - 1))];
 }
 
-function tone({ value, pan = 0, gain = 0.3, dur = 0.35, type = wave }) {
+function tone({ value, midi = noteFor(value), pan = 0, gain = 0.3, dur = 0.35, type = wave, at = 0 }) {
   if (!ctx) return;
-  const now = ctx.currentTime;
+  const now = ctx.currentTime + at;
   const osc = ctx.createOscillator();
   const amp = ctx.createGain();
   const panner = ctx.createStereoPanner();
 
   osc.type = type;
-  osc.frequency.value = midiToHz(noteFor(value));
+  osc.frequency.value = midiToHz(midi);
   panner.pan.value = Math.min(1, Math.max(-1, pan));
 
   amp.gain.setValueAtTime(0.0001, now);
@@ -66,23 +67,35 @@ function click(pan = 0, gain = 0.2) {
   src.start(now);
 }
 
-export async function start() {
+/** Create and resume the AudioContext. Call synchronously inside a user gesture. */
+export function start() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return Promise.reject(new Error('Web Audio is not supported'));
     ctx = new AC();
     master = ctx.createGain();
     master.gain.value = volume;
     master.connect(ctx.destination);
   }
-  if (ctx.state !== 'running') await ctx.resume();
+  return ctx.state === 'running' ? Promise.resolve() : ctx.resume();
+}
+
+/** Release the AudioContext (used when the real engine started after all). */
+export function close() {
+  playing = false;
+  if (ctx) ctx.close().catch(() => {});
+  ctx = null;
+  master = null;
 }
 
 export function isStarted() {
   return !!ctx && ctx.state === 'running';
 }
 
-export async function load(datasetId) {
-  wave = PRESET_WAVES[datasetId] ?? 'sine';
+/** Takes a dataset id or a features.json object. */
+export async function load(datasetOrFile) {
+  const id = typeof datasetOrFile === 'string' ? datasetOrFile : datasetOrFile?.dataset;
+  wave = PRESET_WAVES[id] ?? 'sine';
 }
 
 export function update(frame, _opts) {
@@ -96,8 +109,14 @@ export function update(frame, _opts) {
   }
 }
 
+export function preview(frame, _opts) {
+  if (frame) lastFrame = frame;
+  if (ctx && frame) tone({ value: frame.value, pan: frame.pan, gain: 0.3, dur: 0.3 });
+}
+
 export function play() {
   playing = true;
+  return Promise.resolve();
 }
 
 export function pause() {
@@ -110,14 +129,10 @@ export function setVolume(v) {
 }
 
 export function setRate(_r) {
-  // The stub plays one note per frame, so rate is handled by the UI clock.
+  // The stub plays one note per frame, so speed is handled by the clock.
 }
 
-export function preview(frame, _opts) {
-  if (frame) lastFrame = frame;
-  if (ctx && frame) tone({ value: frame.value, pan: frame.pan, gain: 0.3, dur: 0.3 });
-}
-
+/** Same shape as the engine's probe(); a cell of exactly 0 is empty. */
 export function probe(x, y) {
   const grid = lastFrame?.grid;
   const rows = grid?.length || 16;
@@ -126,9 +141,77 @@ export function probe(x, y) {
   const cy = Math.min(rows - 1, Math.max(0, Math.floor(y)));
   const value = grid ? grid[cy][cx] : 0.5;
   const pan = ((cx + 0.5) / cols) * 2 - 1;
-  const midi = noteFor(value);
-  if (ctx) tone({ value, pan, gain: 0.3, dur: 0.25, type: 'sine' });
-  return { x: cx, y: cy, value, pan, midi, note: null, sounded: !!ctx };
+  const empty = !!grid && value === 0;
+  const midi = empty ? null : noteFor(value);
+  if (ctx) {
+    if (empty) click(pan, 0.06);
+    else tone({ midi, pan, gain: 0.3, dur: 0.25, type: 'sine' });
+  }
+  return {
+    x: cx, y: cy, value, pan, empty,
+    label: empty ? 'no data' : null,
+    level: null, // the UI works out the level word itself
+    midi, note: null, sounded: !!ctx,
+  };
+}
+
+/** Rising scale, lowest to highest value, in about `duration` seconds. */
+export function playLegend({ duration = 3, text = '' } = {}) {
+  if (!ctx) return { text, duration: 0, sounded: false };
+  const dt = duration / SCALE.length;
+  SCALE.forEach((midi, i) => tone({ midi, gain: 0.25, dur: dt * 0.9, type: 'triangle', at: i * dt }));
+  return { text, duration, sounded: true };
+}
+
+/** Simple version of the engine's syncToVideo(): same events, same frame rule. */
+export function syncToVideo(video, file, { onFrame } = {}) {
+  load(file);
+  const last = file.frames.length - 1;
+  const indexAt = (t) => Math.min(last, Math.max(0, Math.floor(t * file.fps + 1e-6)));
+  let lastIndex = -1;
+  let raf = null;
+  let detached = false;
+
+  function sync(force = false) {
+    if (detached) return;
+    const i = indexAt(video.currentTime);
+    if (i === lastIndex && !force) return;
+    lastIndex = i;
+    update(file.frames[i], { frameSeconds: 1 / (file.fps * (video.playbackRate || 1)) });
+    onFrame?.(file.frames[i], i);
+  }
+  function loop() {
+    if (detached || video.paused) {
+      raf = null;
+      return;
+    }
+    sync();
+    raf = requestAnimationFrame(loop);
+  }
+  const onPlay = () => {
+    play();
+    sync(true);
+    if (raf === null) raf = requestAnimationFrame(loop);
+  };
+  const onPause = () => {
+    if (raf !== null) cancelAnimationFrame(raf);
+    raf = null;
+    pause();
+  };
+  const onSeeked = () => sync(true);
+  const onTimeUpdate = () => sync();
+  const events = { play: onPlay, pause: onPause, ended: onPause, seeked: onSeeked, timeupdate: onTimeUpdate };
+  for (const [name, fn] of Object.entries(events)) video.addEventListener(name, fn);
+  sync(true);
+  if (!video.paused) onPlay();
+
+  return function detach() {
+    if (detached) return;
+    detached = true;
+    if (raf !== null) cancelAnimationFrame(raf);
+    for (const [name, fn] of Object.entries(events)) video.removeEventListener(name, fn);
+    pause();
+  };
 }
 
 export function stop() {

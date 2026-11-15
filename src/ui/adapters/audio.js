@@ -1,40 +1,56 @@
 // Audio adapter: the UI imports audio ONLY from this file.
 //
-// It loads Person 2's Tone.js engine (src/audio/engine/index.js, documented in
-// src/audio/CONTRACT.md) and maps it onto the interface below. If the engine
-// can't load (e.g. Tone.js fails to download), it logs a warning and falls back
-// to ./audio-stub.js so the UI keeps working.
+// It drives Person 2's engine (src/audio/engine/index.js, documented in
+// src/audio/CONTRACT.md) and falls back to ./audio-stub.js if the engine can't
+// be used, so the UI keeps working:
+//   - the engine module fails to import → stub from the start;
+//   - Tone.js fails to load or start on the first Play (the engine loads Tone
+//     lazily inside init()) → switch to the stub, including any video sync.
 //
 // Interface the UI uses:
 //
-//   whenReady(): Promise            Resolves once an engine (real or stub) is loaded.
-//   engineName(): 'tone'|'stub'|'loading'
-//   start(): Promise                Unlock audio. Call from a user gesture only.
+//   whenReady(): Promise          Resolves once an implementation is chosen.
+//   engineStatus(): 'loading' | 'tone-idle' | 'tone' | 'stub'
+//   onEngineChange(fn)            Called whenever engineStatus() changes.
+//   start(): Promise              Unlock audio. Call SYNCHRONOUSLY in a click / key
+//                                 handler, before any await.
 //   isStarted(): boolean
-//   load(datasetId): Promise        Switch preset. Fades out the old one. OK before start().
-//   update(frame, { frameSeconds }) Feed one features.json frame. Silent while paused;
-//                                   it only sets the sound for the next play / probe.
-//   preview(frame, opts)            One short audible note for a frame, even while paused
-//                                   (used when scrubbing). Also does update(frame).
-//   play(): Promise / pause()
-//   setVolume(v)                    0–1.
-//   setRate(r)                      Speed multiplier. The UI clock handles speed and passes
-//                                   frameSeconds = 1 / (fps × r) to update().
-//   probe(x, y)                     Explore mode: tone for frame.grid[y][x] of the latest
-//                                   frame given to update(). Returns
-//                                   { x, y, value, pan, midi, note, sounded }.
-//   stop()                          Silence now (pause + release held notes).
+//   load(featuresFile): Promise   Preset + per-file ranges (engine loadDataset).
+//   syncToVideo(video, file, { onFrame }) → detach()
+//                                 Audio follows the <video> (play/pause/seek/rate).
+//   update(frame, { frameSeconds })  Feed one frame (heatmap clock, no video).
+//   preview(frame, opts)          One audible note for a frame, even while paused.
+//   play() / pause() / stop()
+//   setVolume(v) 0–1, setRate(r)
+//   probe(x, y)                   { x, y, value, pan, empty, label, level, midi, note, sounded }
+//   playLegend()                  { text, duration, sounded }
 //
-// Mapping to Person 2's engine:
-//   start → init, isStarted → isReady, load → loadPreset, update → playFrame,
-//   play/pause/setVolume/probe → same names, stop → pause.
-//   setRate and preview have no direct equivalent: see the notes below.
+// Still missing from the engine (see CONTRACT): previewFrame, setRate and a
+// fast-fade stop. preview() plays one probe() note instead, setRate is a no-op
+// (the video's playbackRate / our clock handle speed), stop() = pause().
 
-import * as stubModule from './audio-stub.js';
+import * as stub from './audio-stub.js';
+// Plain JS, no Tone.js: the legend text works on the stub too.
+import { getPreset } from '../../audio/presets/index.js';
+import { legendText } from '../../audio/engine/describe.js';
 
 const ENGINE_URL = '../../audio/engine/index.js';
 
-let impl = null;
+let engine = null; // the engine module, once imported
+let impl = null; // active implementation (engine wrapper or stub wrapper)
+let status = 'loading';
+let startPromise = null;
+let volume = 0.7;
+let currentFile = null;
+let lastFrame = null;
+let sync = null; // { video, file, opts, detach }
+const listeners = new Set();
+
+function setStatus(next) {
+  if (status === next) return;
+  status = next;
+  listeners.forEach((fn) => fn(status));
+}
 
 /** Grid cell whose value best matches frame.value, nearest the frame's pan. */
 function matchingCell(frame) {
@@ -47,6 +63,7 @@ function matchingCell(frame) {
   let best = { x: 0, y: 0, score: Infinity };
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
+      if (grid[y][x] === 0) continue; // empty cells only tick
       const score = Math.abs(grid[y][x] - target) + (0.02 * Math.abs(x - panCol)) / cols;
       if (score < best.score) best = { x, y, score };
     }
@@ -54,18 +71,15 @@ function matchingCell(frame) {
   return best;
 }
 
-function fromToneEngine(m) {
+function engineImpl(m) {
   return {
     name: 'tone',
-    // init() calls Tone.start() synchronously, so this stays inside the gesture.
-    start: () => m.init(),
     isStarted: () => m.isReady(),
-    load: (id) => m.loadPreset(id),
+    load: (file) => m.loadDataset(file),
     update: (frame, opts = {}) => m.playFrame(frame, opts),
-    // The engine's notes come from its running transport, so playFrame() while
-    // paused is silent. For a scrub preview we play one probe note at the cell
-    // that best matches the frame's main value, near its pan position.
-    // (Question for Person 2: a dedicated previewFrame(frame) would be better.)
+    // Engine notes come from its running transport, so playFrame() while paused
+    // is silent. A scrub preview plays one probe note at the cell that best
+    // matches the frame's main value instead (no previewFrame in the engine yet).
     preview: (frame, opts = {}) => {
       m.playFrame(frame, opts);
       if (!m.isReady()) return null;
@@ -75,47 +89,159 @@ function fromToneEngine(m) {
     play: () => m.play(),
     pause: () => m.pause(),
     setVolume: (v) => m.setVolume(v),
-    // Tempo comes from the data (motion → bpm), so speed is handled by the UI
-    // clock via frameSeconds. Nothing to forward.
-    setRate: () => {},
     probe: (x, y) => m.probe(x, y),
     stop: () => m.pause(),
+    playLegend: () => m.playLegend(),
+    syncToVideo: (video, file, opts) => m.syncToVideo(video, file, opts),
   };
 }
 
-function fromStub(s) {
-  return { name: 'stub', ...s };
+const stubImpl = {
+  name: 'stub',
+  isStarted: () => stub.isStarted(),
+  load: (file) => stub.load(file),
+  update: (frame, opts) => stub.update(frame, opts),
+  preview: (frame, opts) => stub.preview(frame, opts),
+  play: () => stub.play(),
+  pause: () => stub.pause(),
+  setVolume: (v) => stub.setVolume(v),
+  probe: (x, y) => stub.probe(x, y),
+  stop: () => stub.stop(),
+  playLegend: () => stub.playLegend({ text: currentFile ? legendText(getPreset(currentFile.dataset)) : '' }),
+  syncToVideo: (video, file, opts) => stub.syncToVideo(video, file, opts),
+};
+
+/** Move everything (preset, frame, volume, video sync) over to the stub. */
+function switchToStub() {
+  if (impl === stubImpl) return;
+  impl = stubImpl;
+  stub.setVolume(volume);
+  if (currentFile) stub.load(currentFile);
+  if (lastFrame) stub.update(lastFrame);
+  if (sync) {
+    const { video, file, opts } = sync;
+    try {
+      sync.detach();
+    } catch {
+      // the engine is already broken; ignore
+    }
+    sync.detach = stub.syncToVideo(video, file, opts);
+  }
+  setStatus('stub');
 }
 
 const ready = import(ENGINE_URL)
   .then((m) => {
-    impl = fromToneEngine(m);
+    engine = m;
+    impl = engineImpl(m);
+    setStatus('tone-idle');
   })
   .catch((err) => {
     console.warn(
-      '[audio] Could not load the Tone.js audio engine (src/audio/engine/index.js). ' +
-        'Falling back to the simple placeholder sounds in src/ui/adapters/audio-stub.js.',
+      '[audio] Could not load the audio engine (src/audio/engine/index.js). ' +
+        'Using the simple fallback sounds in src/ui/adapters/audio-stub.js.',
       err,
     );
-    impl = fromStub(stubModule);
+    impl = stubImpl;
+    setStatus('stub');
   });
 
-/** Call impl[name] now if loaded, otherwise once loading has finished. */
+/** Call impl[name] now if chosen, otherwise once loading has finished. */
 function call(name, args) {
   return impl ? impl[name](...args) : ready.then(() => impl[name](...args));
 }
 
 export const whenReady = () => ready;
-export const engineName = () => impl?.name ?? 'loading';
+export const engineStatus = () => status;
+export const engineName = () => (status === 'loading' ? 'loading' : impl?.name ?? 'loading');
+export const onEngineChange = (fn) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
 export const isStarted = () => (impl ? impl.isStarted() : false);
 
-export const start = (...a) => call('start', a);
-export const load = (...a) => call('load', a);
-export const update = (...a) => call('update', a);
-export const preview = (...a) => call('preview', a);
+/**
+ * Unlock audio. MUST be called synchronously from a click / key handler.
+ * With the engine, a backup Web Audio context is also created inside the same
+ * gesture (Safari only allows that there), so falling back later still has sound.
+ */
+export function start() {
+  if (startPromise) return startPromise;
+  if (!impl) return ready.then(() => start());
+  if (impl === stubImpl) {
+    startPromise = stub.start().catch((err) => {
+      startPromise = null;
+      throw err;
+    });
+    return startPromise;
+  }
+  const engineStart = engine.init();
+  const backup = stub.start().catch(() => {});
+  startPromise = engineStart.then(
+    () => {
+      stub.close(); // the real engine runs; release the backup context
+      setStatus('tone');
+    },
+    async (err) => {
+      console.warn('[audio] Tone.js could not start. Switching to the simple fallback sounds.', err);
+      await backup;
+      switchToStub();
+    },
+  );
+  return startPromise;
+}
+
+export function load(file) {
+  currentFile = file;
+  return call('load', [file]);
+}
+
+export function update(frame, opts) {
+  lastFrame = frame;
+  return call('update', [frame, opts]);
+}
+
+export function preview(frame, opts) {
+  lastFrame = frame;
+  return call('preview', [frame, opts]);
+}
+
+export function setVolume(v) {
+  volume = v;
+  return call('setVolume', [v]);
+}
+
+/**
+ * Audio follows the video. Returns detach(); call it on every record change.
+ * Survives a later switch to the stub (the sync is moved across).
+ */
+export function syncToVideo(video, file, opts = {}) {
+  sync?.detach();
+  currentFile = file;
+  const entry = { video, file, opts, detach: () => {} };
+  sync = entry;
+  const attach = () => {
+    if (sync !== entry) return;
+    entry.detach = impl.syncToVideo(video, file, {
+      ...opts,
+      onFrame: (frame, index, params) => {
+        lastFrame = frame;
+        opts.onFrame?.(frame, index, params);
+      },
+    });
+  };
+  if (impl) attach();
+  else ready.then(attach);
+  return function detach() {
+    if (sync !== entry) return;
+    sync = null;
+    entry.detach();
+  };
+}
+
 export const play = (...a) => call('play', a);
 export const pause = (...a) => call('pause', a);
-export const setVolume = (...a) => call('setVolume', a);
-export const setRate = (...a) => call('setRate', a);
+export const setRate = () => {}; // speed is the video's playbackRate / the UI clock
 export const probe = (...a) => call('probe', a);
 export const stop = (...a) => call('stop', a);
+export const playLegend = (...a) => call('playLegend', a);

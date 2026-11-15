@@ -9,7 +9,7 @@ import { announce } from './narrator.js';
 import { createPlayer } from './player.js';
 import { installShortcuts } from './shortcuts.js';
 import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
-import { renderNarrationControls } from './narration-controls.js';
+import { createSoundSettings } from './sound-settings.js';
 import { createExplore } from './explore.js';
 
 const nowPlaying = document.getElementById('now-playing');
@@ -59,7 +59,8 @@ const narration = createLiveNarration({
 
 const player = createPlayer({
   transportEl: document.getElementById('transport'),
-  engineStatusEl: document.getElementById('engine-status'),
+  soundStatusEl: document.getElementById('sound-status'),
+  videoStatusEl: document.getElementById('video-status'),
   narration,
   onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
   onUserSeek: (index) => explore.onFrameChange(index),
@@ -74,10 +75,11 @@ const explore = createExplore({
   narration,
 });
 
-const narrationControls = renderNarrationControls(document.getElementById('narration-controls'), {
+const soundSettings = createSoundSettings(document.getElementById('sound-settings'), {
   level: DEFAULT_LEVEL,
-  onChange: (level) => setNarrationLevel(level),
+  onNarrationChange: (level) => setNarrationLevel(level),
 });
+const narrationControls = soundSettings.narrationControls;
 
 function setNarrationLevel(level, { announceIt = true } = {}) {
   if (!isLevel(level)) return;
@@ -98,6 +100,7 @@ installShortcuts({
   explore: () => explore.focusMap(),
   whereAmI: () => explore.whereAmI(),
   compare: () => explore.compare(),
+  legend: () => soundSettings.playLegend(),
 });
 
 // ---------- Selection ----------
@@ -126,6 +129,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
   // Stops the old record's clock and sound at once; Play waits for new data.
   player.clear(record);
   explore.setContext(record, null);
+  soundSettings.setContext(record, null);
 
   writeHash();
   nowPlaying.textContent = record.title;
@@ -144,6 +148,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
     state.data = data;
     player.setData(record, data); // loads the preset, shows frame 0, stays paused
     explore.setContext(record, data);
+    soundSettings.setContext(record, data);
   } catch (err) {
     if (token !== state.loadToken) return;
     console.error(err);

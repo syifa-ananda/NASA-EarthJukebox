@@ -109,10 +109,11 @@ export function createTransport(container, handlers) {
     },
 
     /** Show frame `index`; valueText is the full spoken form, e.g. "Frame 12 of 60, about 2014". */
-    setFrame(index, frameCount, valueText, year) {
+    /** when: short date for the readout ("2014", "~Jul 2007"), or null. */
+    setFrame(index, frameCount, valueText, when) {
       if (scrubber.value !== String(index)) scrubber.value = String(index);
       scrubber.setAttribute('aria-valuetext', valueText);
-      frameReadout.textContent = `${index + 1} / ${frameCount}${year ? ` · ~${year}` : ''}`;
+      frameReadout.textContent = `${index + 1} / ${frameCount}${when ? ` · ${when}` : ''}`;
     },
 
     focusPlay() {

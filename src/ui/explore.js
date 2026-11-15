@@ -1,22 +1,33 @@
-// Explore mode: a "sound cursor" over the map.
+// Explore mode: a "sound cursor" over the picture.
 //
 // The sound map is one focusable element (tabindex="0") laid over the viewer,
 // with role="group" + aria-roledescription="sound map", an aria-label and
 // aria-describedby instructions. No role="application": VoiceOver on macOS
 // already passes plain arrow keys to the focused element when Quick Nav is off,
 // and a group keeps the label and instructions readable in Chrome and Safari.
+// The map is sized to the displayed picture (not the letterbox), so cells line
+// up with what is on screen.
+//
+// Place words depend on the dataset (config/datasets.js → gridKind):
+//   world map: region names from regions.js ("North Atlantic")
+//   screen:    picture positions only ("upper left of the picture"); co2 is a
+//              turning globe, so never region names and never "space".
+// Empty cells (grid value 0 = nothing there) read Person 2's probe label, e.g.
+// "Land, where there is no ocean data", with no level word and no note.
 //
 // Keys inside the map (not global shortcuts):
 //   Arrows        move one cell        Shift+Arrows  move 4 cells
-//   Home / End    west / east edge     Page Up / Down  north / south edge
+//   Home / End    left / right edge    Page Up / Down  top / bottom edge
 //   Escape        leave, back to Play
 // Global shortcuts that also work here: W (where am I), C (compare), J / L, K.
 
 import * as audio from './adapters/audio.js';
+import * as viewer from './viewer.js';
 import { announce } from './narrator.js';
-import { regionAt, compassAt } from './regions.js';
-import { frameLabel } from './narration.js';
+import { placeAt, compassAt } from './regions.js';
+import { frameLabel, rangesFor } from './narration.js';
 import { levelWord } from '../audio/engine/describe.js';
+import { normalizeValue } from '../audio/engine/normalize.js';
 import { getPreset } from '../audio/presets/index.js';
 
 const ANNOUNCE_DEBOUNCE_MS = 250; // holding an arrow: speak once it settles
@@ -30,8 +41,11 @@ const KEY_MOVES = {
   ArrowDown: [0, 1],
 };
 
-const upperFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+const MAP_DIRECTIONS = { left: 'west', right: 'east', up: 'north', down: 'south' };
+const PICTURE_DIRECTIONS = { left: 'left', right: 'right', up: 'top', down: 'bottom' };
+
+const upperFirst = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
 
 /**
  * @param {{ mapEl: HTMLElement, cursorEl: HTMLElement, readoutEl: HTMLElement,
@@ -52,28 +66,55 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     pendingHover: null,
   };
 
-  const IDLE_READOUT = 'Explore the map: press E, use the Explore map button, or point at the picture.';
+  const IDLE_READOUT = 'Explore the picture: press E, use the Explore map button, or point at it.';
 
   // ---------- helpers ----------
 
   const cols = () => s.data?.grid?.cols ?? 32;
   const rows = () => s.data?.grid?.rows ?? 16;
   const frame = () => s.data.frames[player.currentIndex()];
-  const valueLabel = () => getPreset(s.record.id).valueLabel ?? 'value';
-  const region = (x = s.x, y = s.y) => regionAt(x, y, cols(), rows());
+  const isScreen = () => s.record?.gridKind !== 'world-map';
+  const preset = () => getPreset(s.record.id);
+  const place = (x = s.x, y = s.y) =>
+    placeAt(x, y, {
+      cols: cols(), rows: rows(), gridKind: s.record.gridKind, westLon: s.record.westLon,
+      dataOn: s.record.dataOn, hasData: s.data.frames[player.currentIndex()].grid[y][x] > 0,
+    });
+  const areaWord = () => (isScreen() ? 'picture' : 'map');
 
   function cellValue(x = s.x, y = s.y) {
     return frame().grid[y][x];
   }
 
-  /** "High water temperature, 0.81." */
-  function valueWords(value) {
-    return `${upperFirst(levelWord(value))} ${valueLabel()}, ${value.toFixed(2)}.`;
+  /** Level word relative to this dataset (the engine's, or the same rule for the stub). */
+  function levelOf(result) {
+    if (result.level) return result.level;
+    return levelWord(normalizeValue(result.value, rangesFor(s.record, s.data).grid));
   }
 
-  /** Probe the cursor cell. Returns the engine's result (value, note, …). */
+  /** "About 28 °C" for sst, "0.42" for the others. */
+  function amount(value) {
+    const u = s.record.valueUnit;
+    if (!u) return value.toFixed(2);
+    return `about ${Math.round(value * u.scale)} ${u.unit}`;
+  }
+
+  /** "Very high, about 28 °C." / "High night light, 0.42." / "Land, where there is no ocean data." */
+  function valueWords(result) {
+    if (result.empty) return `${upperFirst(result.label ?? 'no data')}.`;
+    const level = upperFirst(levelOf(result));
+    if (s.record.valueUnit) return `${level}, ${amount(result.value)}.`;
+    return `${level} ${preset().valueLabel ?? 'value'}, ${amount(result.value)}.`;
+  }
+
+  function noteWords(result) {
+    return !result.empty && result.note ? ` Note ${result.note}.` : '';
+  }
+
+  /** Probe the cursor cell. Returns the engine's result (value, empty, label, level, note, …). */
   function probe() {
-    const fallback = { x: s.x, y: s.y, value: cellValue(), note: null };
+    const value = cellValue();
+    const fallback = { x: s.x, y: s.y, value, empty: value === 0, label: value === 0 ? 'no data' : null, level: null, note: null };
     const result = audio.probe(s.x, s.y);
     return Promise.resolve(result).then((r) => r ?? fallback, () => fallback);
   }
@@ -103,9 +144,14 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
       readoutEl.classList.add('is-idle');
       return;
     }
-    const value = result?.value ?? cellValue();
-    const parts = [region(), levelWord(value), value.toFixed(2)];
-    if (result?.note) parts.push(result.note);
+    const r = result ?? { value: cellValue(), empty: cellValue() === 0, label: 'no data' };
+    const parts = [upperFirst(place().name)];
+    if (r.empty) {
+      parts.push(r.label ?? 'no data');
+    } else {
+      parts.push(levelOf(r), amount(r.value));
+      if (r.note) parts.push(r.note);
+    }
     parts.push(`col ${s.x + 1}, row ${s.y + 1}`);
     readoutEl.textContent = parts.join(' · ');
     readoutEl.classList.remove('is-idle');
@@ -117,14 +163,19 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     s.announceTimer = setTimeout(() => announce(text, { force: true }), ANNOUNCE_DEBOUNCE_MS);
   }
 
+  /** "North Atlantic. Very high, about 28 °C. Note F5." */
   function cellSentence(result) {
-    const note = result.note ? ` Note ${result.note}.` : '';
-    return `${upperFirst(region())}. ${valueWords(result.value)}${note}`;
+    return `${upperFirst(place().name)}. ${valueWords(result)}${noteWords(result)}`;
   }
 
   // ---------- moving ----------
 
-  function moveTo(x, y, edgeWord) {
+  function edgeSentence(direction) {
+    const words = isScreen() ? PICTURE_DIRECTIONS : MAP_DIRECTIONS;
+    return isScreen() ? `Edge of the picture, ${words[direction]}.` : `Edge of map, ${words[direction]}.`;
+  }
+
+  function moveTo(x, y, direction) {
     const nx = Math.min(cols() - 1, Math.max(0, x));
     const ny = Math.min(rows() - 1, Math.max(0, y));
     const blocked = nx === s.x && ny === s.y;
@@ -134,15 +185,15 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     probeInGesture().then((result) => {
       showReadout(result);
       // At an edge the probe repeats as a soft "bump" and we say which edge.
-      announceSoon(blocked && edgeWord ? `Edge of map, ${edgeWord}.` : cellSentence(result));
+      announceSoon(blocked && direction ? edgeSentence(direction) : cellSentence(result));
     });
   }
 
-  function edgeFor(dx, dy) {
-    if (dx < 0) return 'west';
-    if (dx > 0) return 'east';
-    if (dy < 0) return 'north';
-    return 'south';
+  function directionOf(dx, dy) {
+    if (dx < 0) return 'left';
+    if (dx > 0) return 'right';
+    if (dy < 0) return 'up';
+    return 'down';
   }
 
   function onKeyDown(event) {
@@ -151,15 +202,15 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     let handled = true;
     if (KEY_MOVES[event.key]) {
       const [dx, dy] = KEY_MOVES[event.key];
-      moveTo(s.x + dx * step, s.y + dy * step, edgeFor(dx, dy));
+      moveTo(s.x + dx * step, s.y + dy * step, directionOf(dx, dy));
     } else if (event.key === 'Home') {
-      moveTo(0, s.y, 'west');
+      moveTo(0, s.y, 'left');
     } else if (event.key === 'End') {
-      moveTo(cols() - 1, s.y, 'east');
+      moveTo(cols() - 1, s.y, 'right');
     } else if (event.key === 'PageUp') {
-      moveTo(s.x, 0, 'north');
+      moveTo(s.x, 0, 'up');
     } else if (event.key === 'PageDown') {
-      moveTo(s.x, rows() - 1, 'south');
+      moveTo(s.x, rows() - 1, 'down');
     } else if (event.key === 'Escape') {
       leave({ returnFocus: true });
     } else {
@@ -196,6 +247,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     const wait = HOVER_GAP_MS - (performance.now() - s.lastHoverAt);
     if (wait <= 0) {
       clearTimeout(s.hoverTimer);
+      s.hoverTimer = 0;
       hoverProbe(s.pendingHover);
     } else if (!s.hoverTimer) {
       s.hoverTimer = setTimeout(() => {
@@ -242,7 +294,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     const label = lowerFirst(frameLabel(s.record, s.data, player.currentIndex()));
     probeInGesture().then((result) => {
       showReadout(result);
-      announce(`${wasPlaying ? 'Paused. ' : ''}Exploring ${label}. Cursor: ${region()}.`, { force: true });
+      announce(`${wasPlaying ? 'Paused. ' : ''}Exploring ${label}. Cursor: ${place().name}.`, { force: true });
     });
   }
 
@@ -265,6 +317,11 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
   mapEl.addEventListener('pointermove', onPointerMove);
   mapEl.addEventListener('pointerleave', onPointerLeave);
   mapEl.addEventListener('pointerdown', onPointerDown);
+
+  // Keep the map exactly on the displayed picture (not on letterbox bars).
+  viewer.onLayout(({ top, right, bottom, left }) => {
+    mapEl.style.margin = `${top}px ${right}px ${bottom}px ${left}px`;
+  });
 
   showReadout();
   showCursor();
@@ -293,7 +350,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     /** E / Explore map button. */
     focusMap() {
       if (!s.data) {
-        announce('Choose a record marked "Mock data" first, then explore its map.', { force: true });
+        announce('Choose a record marked "Ready to play" first, then explore its picture.', { force: true });
         return;
       }
       mapEl.focus();
@@ -307,7 +364,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
         showReadout(result);
         if (!s.active) return;
         const label = lowerFirst(frameLabel(s.record, s.data, index));
-        announceSoon(`Same place, ${label}: ${lowerFirst(valueWords(result.value))}`);
+        announceSoon(`Same place, ${label}: ${lowerFirst(valueWords(result))}`);
       });
     },
 
@@ -320,35 +377,40 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
       clearTimeout(s.announceTimer);
       probeInGesture().then((result) => {
         showReadout(result);
-        const note = result.note ? ` Note ${result.note}.` : '';
+        const where = isScreen()
+          ? `${upperFirst(place().name)}.`
+          : `${upperFirst(place().name)}, ${compassAt(s.x, s.y, cols(), rows())}.`;
         const label = frameLabel(s.record, s.data, player.currentIndex());
         announce(
-          `${upperFirst(region())}, ${compassAt(s.x, s.y, cols(), rows())}. ` +
-            `Column ${s.x + 1} of ${cols()}, row ${s.y + 1} of ${rows()}. ` +
-            `${valueWords(result.value)}${note} ${label}.`,
+          `${where} Column ${s.x + 1} of ${cols()}, row ${s.y + 1} of ${rows()}. ` +
+            `${valueWords(result)}${noteWords(result)} ${label}.`,
           { force: true },
         );
       });
     },
 
-    /** C: compare the cursor cell with the frame average. */
+    /** C: compare the cursor cell with the average of the cells that have data. */
     compare() {
       if (!s.data) {
         announce('Choose a record first.', { force: true });
         return;
       }
       clearTimeout(s.announceTimer);
-      const grid = frame().grid;
-      const all = grid.flat();
-      const avg = all.reduce((a, b) => a + b, 0) / all.length;
       const value = cellValue();
-      const d = value - avg;
-      const words =
-        d >= 0.25 ? 'Much higher than average' :
-        d >= 0.05 ? 'Higher than average' :
-        d <= -0.25 ? 'Much lower than average' :
-        d <= -0.05 ? 'Lower than average' : 'About average';
-      announce(`${words}: ${value.toFixed(2)} here, map average ${avg.toFixed(2)}.`, { force: true });
+      if (value === 0) {
+        announce('No data here to compare.', { force: true });
+        return;
+      }
+      const cells = frame().grid.flat().filter((v) => v > 0);
+      const avg = cells.reduce((a, b) => a + b, 0) / cells.length;
+      const span = Math.max(...cells) - Math.min(...cells) || 1;
+      const d = (value - avg) / span; // relative to this frame's spread
+      let words = 'About average';
+      if (d >= 0.25) words = 'Much higher than average';
+      else if (d >= 0.08) words = 'Higher than average';
+      else if (d <= -0.25) words = 'Much lower than average';
+      else if (d <= -0.08) words = 'Lower than average';
+      announce(`${words}: ${amount(value)} here, ${areaWord()} average ${amount(avg)}.`, { force: true });
     },
   };
 }

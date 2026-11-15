@@ -3,7 +3,7 @@
 
 import { h } from './dom.js';
 import { cssGradient } from './color.js';
-import { statusLabel } from './config/datasets.js';
+import { statusLabel, statusKind } from './config/datasets.js';
 // Plain JS, no Tone.js: works even when the audio engine falls back to the stub.
 import { getPreset } from '../audio/presets/index.js';
 
@@ -75,7 +75,7 @@ export function renderInfo(container, record) {
   const status = statusLabel(record);
   const parts = [
     h('h3', { class: 'info-title' }, record.title),
-    status && h('p', {}, h('span', { class: `record-badge ${record.playable ? 'badge-mock' : 'badge-soon'}` }, status)),
+    status && h('p', {}, h('span', { class: `record-badge badge-${statusKind(record)}` }, status)),
     !record.playable &&
       h(
         'p',

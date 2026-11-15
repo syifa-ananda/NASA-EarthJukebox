@@ -19,6 +19,7 @@ export const SHORTCUTS = [
   { action: 'explore', keys: ['E'], description: 'Explore the map with the sound cursor (arrow keys move, Escape leaves)' },
   { action: 'whereAmI', keys: ['W'], description: 'Where is the sound cursor? Region, column, row and value' },
   { action: 'compare', keys: ['C'], description: 'Compare the cursor cell with the map average' },
+  { action: 'legend', keys: ['G'], description: 'Play the audio legend: the notes from lowest to highest value' },
 ];
 
 const settings = { singleKeyShortcuts: true };
@@ -48,9 +49,10 @@ function isControl(el) {
 
 const KEY_ACTIONS = {
   k: 'toggle', j: 'back', l: 'forward', n: 'cycleNarration', d: 'describe', e: 'explore', w: 'whereAmI', c: 'compare',
+  g: 'legend',
 };
 
-/** actions: { toggle, back, forward, cycleNarration, describe, explore, whereAmI, compare } */
+/** actions: { toggle, back, forward, cycleNarration, describe, explore, whereAmI, compare, legend } */
 export function installShortcuts(actions) {
   document.addEventListener('keydown', (event) => {
     if (!settings.singleKeyShortcuts) return;

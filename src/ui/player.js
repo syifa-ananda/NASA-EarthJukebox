@@ -1,12 +1,24 @@
-// Player: the ONE playback clock. Every 1 / (fps × speed) seconds it advances a
-// frame, redraws the viewer, updates the transport and feeds the audio engine,
-// so picture, sound and controls can never drift apart.
+// Player: playback state, transport and the clock.
+//
+// Two clocks, one at a time:
+//   video   The record has a video (entry.video). The <video> is the clock.
+//           Audio follows it through the engine's syncToVideo(); the UI
+//           follows the same sync's onFrame callback (requestVideoFrameCallback
+//           with a requestAnimationFrame fallback), so timeline, captions,
+//           narration and explore always see the frame the sound is on.
+//           Play / Pause / timeline / speed / loop control the <video>.
+//   heatmap No video, or it failed to load: our own requestAnimationFrame
+//           clock advances one frame every 1 / (fps × speed) seconds and feeds
+//           the audio with update().
+// Frame index = floor(seconds × fps), capped at the last frame. The videos run
+// up to 0.2 s longer than frameCount / fps; the last frame simply holds.
 
 import * as audio from './adapters/audio.js';
 import * as viewer from './viewer.js';
+import { mediaUrl } from './adapters/data.js';
 import { announce } from './narrator.js';
 import { createTransport, DEFAULT_VOLUME } from './transport.js';
-import { frameLabel, yearAt } from './narration.js';
+import { frameLabel, shortTime } from './narration.js';
 
 const PREVIEW_GAP_MS = 150; // scrub previews: at most one note per 150 ms
 
@@ -14,14 +26,23 @@ const NO_NARRATION = {
   setContext() {}, onPlay() {}, onStop() {}, onFrame() {}, onUserSeek() {},
 };
 
+const SOUND_STATUS = {
+  loading: 'Sound: loading…',
+  'tone-idle': 'Sound: Tone.js engine (starts when you press Play)',
+  tone: 'Sound: Tone.js engine',
+  stub: 'Sound: simple fallback (Tone.js could not load)',
+};
+
 /**
- * @param {{ transportEl: HTMLElement, engineStatusEl?: HTMLElement,
+ * @param {{ transportEl: HTMLElement, soundStatusEl?: HTMLElement, videoStatusEl?: HTMLElement,
  *           narration?: ReturnType<import('./narration.js').createLiveNarration>,
- *           onPlayingChange?: (playing: boolean) => void }} opts
+ *           onPlayingChange?: (playing: boolean) => void,
+ *           onUserSeek?: (index: number) => void, onExplore?: () => void }} opts
  */
 export function createPlayer({
   transportEl,
-  engineStatusEl,
+  soundStatusEl,
+  videoStatusEl,
   narration = NO_NARRATION,
   onPlayingChange = () => {},
   onUserSeek = () => {}, // the user changed frame (timeline, J / L)
@@ -35,13 +56,19 @@ export function createPlayer({
     playing: false,
     speed: 1,
     loop: false,
-    engineReady: false,
+    engineLoaded: false,
     exploring: false,
+    clock: 'none', // 'none' | 'video' | 'heatmap'
+    video: null,
+    videoReady: false,
+    buffering: false,
+    detachSync: null,
+    videoOff: [], // remove our <video> listeners
     raf: 0,
     lastTs: null,
     acc: 0,
     session: 0, // bumps on every play / pause / record change
-    resumeOnVisible: false,
+    suspended: false, // paused because the tab is hidden
     lastPreviewAt: 0,
     previewTimer: 0,
   };
@@ -52,21 +79,24 @@ export function createPlayer({
     onVolume: (v) => audio.setVolume(v / 100),
     onSpeed: (r) => {
       s.speed = r;
+      if (s.video) s.video.playbackRate = r;
       audio.setRate(r);
     },
     onLoop: (on) => {
       s.loop = on;
+      if (s.video) s.video.loop = on;
     },
     onExplore: () => onExplore(),
   });
 
   audio.setVolume(DEFAULT_VOLUME / 100);
+  const showSoundStatus = (state) => {
+    if (soundStatusEl) soundStatusEl.textContent = SOUND_STATUS[state] ?? SOUND_STATUS.loading;
+  };
+  showSoundStatus(audio.engineStatus());
+  audio.onEngineChange(showSoundStatus);
   audio.whenReady().then(() => {
-    s.engineReady = true;
-    if (engineStatusEl) {
-      engineStatusEl.textContent =
-        audio.engineName() === 'tone' ? 'Sound: Tone.js engine' : 'Sound: simple fallback (Tone.js could not load)';
-    }
+    s.engineLoaded = true;
     refresh();
   });
 
@@ -77,35 +107,58 @@ export function createPlayer({
   const last = () => (s.data ? s.data.frameCount - 1 : 0);
   const frame = () => s.data.frames[s.index];
   const frameSeconds = () => 1 / (s.data.fps * s.speed);
-  const canPlay = () => s.engineReady && !!s.data;
-
-  /** "Frame 12 of 60, about 2014" — same wording as the narration. */
+  const usingVideo = () => s.clock === 'video';
+  const canPlay = () => s.engineLoaded && !!s.data && (s.clock === 'heatmap' || s.videoReady);
   const frameText = (i) => frameLabel(s.record, s.data, i);
+  const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
 
   function helpText() {
     if (!s.record) return 'Choose a record to enable Play.';
     if (!s.record.playable) return `${s.record.title} is coming soon, so it can't play yet.`;
     if (s.error) return `${s.record.title} could not load.`;
     if (!s.data) return `Loading ${s.record.title}…`;
-    if (!s.engineReady) return 'Loading the sound engine…';
-    return 'Shortcuts: K play or pause, J and L step a frame, E explore the map, N narration level, D describe now.';
+    if (!s.engineLoaded) return 'Loading the sound engine…';
+    if (usingVideo() && !s.videoReady) return 'Loading the video…';
+    return 'Shortcuts: K play or pause, J and L step a frame, E explore the map, N narration level, D describe now, G legend.';
   }
 
   function refresh() {
     transport.setEnabled(canPlay(), helpText());
   }
 
+  function setVideoStatus(text) {
+    if (videoStatusEl) {
+      videoStatusEl.textContent = text;
+      videoStatusEl.hidden = !text;
+    }
+  }
+
   function render() {
+    if (!s.data) return;
     const text = frameText(s.index);
-    viewer.showFrame(s.record, s.data, s.index, { caption: s.playing ? `Playing · ${text}` : text });
-    transport.setFrame(s.index, s.data.frameCount, text, yearAt(s.record, s.data, s.index));
+    let caption = text;
+    if (s.buffering && s.playing) caption = `Buffering… · ${text}`;
+    else if (s.playing) caption = `Playing · ${text}`;
+    viewer.showFrame(s.record, s.data, s.index, { caption });
+    transport.setFrame(s.index, s.data.frameCount, text, shortTime(s.record, s.data, s.index));
   }
 
   function setPlaying(on) {
+    if (s.playing === on) return;
     s.playing = on;
     transport.setPlaying(on);
     onPlayingChange(on);
   }
+
+  /** A new frame index from the running clock (video or heatmap). */
+  function advanceTo(i) {
+    if (i === s.index) return;
+    s.index = i;
+    render();
+    if (s.playing && !s.suspended) narration.onFrame(i);
+  }
+
+  // ---------- heatmap clock ----------
 
   function stopClock() {
     cancelAnimationFrame(s.raf);
@@ -119,10 +172,8 @@ export function createPlayer({
     s.raf = requestAnimationFrame(tick);
   }
 
-  // ---------- clock ----------
-
   function tick(ts) {
-    if (!s.playing) return;
+    if (!s.playing || usingVideo()) return;
     if (s.lastTs === null) s.lastTs = ts;
     s.acc += (ts - s.lastTs) / 1000;
     s.lastTs = ts;
@@ -130,13 +181,14 @@ export function createPlayer({
     const step = frameSeconds();
     if (s.acc > step * 4) s.acc = step; // after a long stall, don't fast-forward
 
+    let next = s.index;
     let advanced = false;
     while (s.acc >= step) {
       s.acc -= step;
-      if (s.index < last()) {
-        s.index += 1;
+      if (next < last()) {
+        next += 1;
       } else if (s.loop) {
-        s.index = 0;
+        next = 0;
       } else {
         finish();
         return;
@@ -144,58 +196,168 @@ export function createPlayer({
       advanced = true;
     }
     if (advanced) {
-      render();
+      advanceTo(next);
       audio.update(frame(), { frameSeconds: step });
-      narration.onFrame(s.index);
     }
     s.raf = requestAnimationFrame(tick);
   }
+
+  // ---------- video clock ----------
+
+  function videoSeekTime(i) {
+    // Middle of frame i, so floor(t × fps) is exactly i; never past the end.
+    const t = (i + 0.5) / s.data.fps;
+    const end = Number.isFinite(s.video.duration) ? s.video.duration - 0.05 : t;
+    return Math.max(0, Math.min(t, end));
+  }
+
+  function attachVideo(record, data) {
+    s.clock = 'video';
+    s.videoReady = false;
+    viewer.setAspect(record.aspect);
+    const v = viewer.loadVideo(mediaUrl(record.entry.video), {
+      onReady: () => {
+        if (s.video !== v) return;
+        s.videoReady = true;
+        render();
+        refresh();
+      },
+      onError: () => {
+        if (s.video !== v) return;
+        fallBackToHeatmap('Video could not load; showing the data map instead.');
+      },
+    });
+    s.video = v;
+    v.playbackRate = s.speed;
+    v.defaultPlaybackRate = s.speed;
+    v.loop = s.loop;
+
+    const on = (name, fn) => {
+      v.addEventListener(name, fn);
+      s.videoOff.push(() => v.removeEventListener(name, fn));
+    };
+    on('pause', () => {
+      if (s.suspended || v.ended) return; // hidden tab, or 'ended' handles it
+      if (s.playing) {
+        // Paused by something other than our button (e.g. the system).
+        narration.onStop();
+        setPlaying(false);
+        render();
+      }
+    });
+    on('ended', () => {
+      if (!s.loop) finish();
+    });
+    on('waiting', () => {
+      s.buffering = true;
+      render();
+    });
+    on('playing', () => {
+      s.buffering = false;
+      render();
+    });
+
+    // Audio follows the video; the UI follows the same frame changes.
+    s.detachSync = audio.syncToVideo(v, data, {
+      onFrame: (_frame, index) => {
+        if (s.video === v) advanceTo(index);
+      },
+    });
+  }
+
+  function detachVideo() {
+    s.detachSync?.();
+    s.detachSync = null;
+    s.videoOff.forEach((off) => off());
+    s.videoOff = [];
+    s.video = null;
+    s.videoReady = false;
+    s.buffering = false;
+  }
+
+  function fallBackToHeatmap(message) {
+    const wasPlaying = s.playing;
+    detachVideo();
+    viewer.useHeatmap();
+    s.clock = 'heatmap';
+    setVideoStatus(message);
+    if (s.data) {
+      audio.load(s.data);
+      audio.update(frame(), { frameSeconds: frameSeconds() });
+    }
+    if (wasPlaying) {
+      s.session += 1;
+      narration.onStop();
+      audio.pause();
+      setPlaying(false);
+    }
+    render();
+    refresh();
+    announce(message, { force: true });
+  }
+
+  // ---------- shared play / pause / finish ----------
 
   function finish() {
     s.session += 1;
     stopClock();
     narration.onStop();
-    audio.pause();
+    if (!usingVideo()) audio.pause(); // with video, syncToVideo pauses on 'ended'
     setPlaying(false);
+    if (usingVideo()) s.index = last();
     render();
     announce('Finished. Press Play to listen again.', { force: true });
   }
 
-  // ---------- user actions ----------
-
   function play() {
     // audio.start() must run synchronously inside the click / key handler.
     const started = audio.start();
-    if (s.index >= last() && !s.loop) s.index = 0;
     const session = ++s.session;
+    const atEnd = usingVideo() ? s.video.ended || s.index >= last() : s.index >= last();
+    if (atEnd && !s.loop) {
+      s.index = 0;
+      if (usingVideo()) s.video.currentTime = 0;
+    }
     setPlaying(true);
     render();
-    // The picture starts at once; the sound joins as soon as the engine is up
-    // (the first start can take a moment while Tone.js builds its graph).
-    startClock();
     announce(`Playing ${s.record.title}.`, { force: true });
     narration.onPlay();
 
+    const fail = (err) => {
+      console.error(err);
+      if (session !== s.session) return;
+      s.session += 1;
+      stopClock();
+      narration.onStop();
+      if (usingVideo()) s.video.pause();
+      setPlaying(false);
+      render();
+      announce('Playback could not start. Press Play to try again.', { force: true });
+    };
+
+    if (usingVideo()) {
+      // The video is the clock; syncToVideo starts the audio on its 'play'.
+      s.video.playbackRate = s.speed;
+      s.video.play().catch((err) => {
+        if (err?.name === 'AbortError') return; // paused again before it started
+        fail(err);
+      });
+      Promise.resolve(started).catch(() => {}); // the adapter falls back by itself
+      return;
+    }
+
+    // Heatmap clock: the picture starts at once; the sound joins when ready.
+    startClock();
     Promise.resolve(started)
       .then(() => audio.play())
       .then(() => {
         if (session !== s.session) {
-          // Paused or switched record while audio was starting.
           if (!s.playing) audio.pause();
           return;
         }
         audio.update(frame(), { frameSeconds: frameSeconds() });
       })
-      .catch((err) => {
-        console.error(err);
-        if (session !== s.session) return;
-        s.session += 1;
-        stopClock();
-        narration.onStop();
-        setPlaying(false);
-        render();
-        announce('The sound could not start. Press Play to try again.', { force: true });
-      });
+      .catch(fail);
   }
 
   /** silent: the caller announces instead (explore mode says "Paused. Exploring …"). */
@@ -203,12 +365,12 @@ export function createPlayer({
     s.session += 1;
     stopClock();
     narration.onStop();
-    audio.pause();
+    if (usingVideo()) s.video.pause();
+    else audio.pause();
     setPlaying(false);
     render();
     if (silent) return;
-    const text = frameText(s.index);
-    announce(`Paused at ${text.charAt(0).toLowerCase()}${text.slice(1)}.`, { force: true });
+    announce(`Paused at ${lowerFirst(frameText(s.index))}.`, { force: true });
   }
 
   function toggle() {
@@ -225,10 +387,15 @@ export function createPlayer({
     if (!s.data) return;
     s.index = Math.min(last(), Math.max(0, Math.round(i)));
     s.acc = 0;
+    if (usingVideo()) s.video.currentTime = videoSeekTime(s.index);
     render();
-    if (s.playing) audio.update(frame(), { frameSeconds: frameSeconds() });
-    else if (s.exploring) audio.update(frame()); // explore re-probes the cursor cell instead
-    else schedulePreview();
+    if (s.playing) {
+      if (!usingVideo()) audio.update(frame(), { frameSeconds: frameSeconds() });
+    } else if (s.exploring) {
+      audio.update(frame()); // explore re-probes the cursor cell instead
+    } else {
+      schedulePreview();
+    }
     narration.onUserSeek(); // quiet while scrubbing, one summary when it stops
     onUserSeek(s.index);
   }
@@ -262,50 +429,68 @@ export function createPlayer({
 
   function onVisibility() {
     if (document.hidden) {
-      if (s.playing) {
-        s.resumeOnVisible = true;
+      if (!s.playing) return;
+      s.suspended = true;
+      narration.onStop();
+      if (usingVideo()) {
+        s.video.pause(); // syncToVideo pauses the audio
+      } else {
         stopClock();
-        narration.onStop();
         audio.pause();
       }
-    } else if (s.resumeOnVisible) {
-      s.resumeOnVisible = false;
-      if (s.playing) {
+    } else if (s.suspended) {
+      s.suspended = false;
+      if (!s.playing) return;
+      if (usingVideo()) {
+        s.video.play().catch(() => {});
+      } else {
         Promise.resolve(audio.play()).catch(() => {});
         startClock();
-        narration.onPlay();
       }
+      narration.onPlay();
     }
   }
 
   // ---------- record changes (called by main.js) ----------
 
-  /** A new record was chosen: stop the old sound and wait for its data. */
+  /** A new record was chosen: stop the old picture and sound, wait for data. */
   function clear(record, { error = false } = {}) {
     s.session += 1;
     stopClock();
     clearTimeout(s.previewTimer);
-    s.resumeOnVisible = false;
+    s.suspended = false;
+    detachVideo(); // detach() pauses the old record's audio
+    viewer.unloadVideo();
     if (s.playing) setPlaying(false);
     audio.stop();
+    s.clock = 'none';
     s.record = record;
     s.data = null;
     s.error = error;
     s.index = 0;
+    setVideoStatus('');
     narration.setContext(record, null); // cancels anything pending for the old record
     transport.setRange(0);
     refresh();
   }
 
-  /** Data for the current record arrived: load its preset, show frame 0, stay paused. */
+  /** Data for the current record arrived: video (or heatmap), frame 0, paused. */
   function setData(record, data) {
     if (record !== s.record) return;
     s.data = data;
     s.index = 0;
     s.acc = 0;
     transport.setRange(data.frameCount);
-    audio.load(record.id);
-    audio.update(frame(), { frameSeconds: frameSeconds() }); // silent; primes probe()
+    if (record.entry?.video) {
+      attachVideo(record, data); // syncToVideo loads the preset and ranges
+    } else {
+      s.clock = 'heatmap';
+      viewer.setAspect(record.aspect);
+      viewer.useHeatmap();
+      setVideoStatus('No video for this record; showing the data map instead.');
+      audio.load(data);
+      audio.update(frame(), { frameSeconds: frameSeconds() }); // silent; primes probe()
+    }
     narration.setContext(record, data);
     render();
     refresh();
@@ -323,6 +508,7 @@ export function createPlayer({
     isPlaying: () => s.playing,
     currentIndex: () => s.index,
     hasData: () => !!s.data,
+    clockKind: () => s.clock,
     focusPlay: () => transport.focusPlay(),
   };
 }

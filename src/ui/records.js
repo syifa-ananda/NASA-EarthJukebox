@@ -3,7 +3,7 @@
 // leaves the group as one stop, and arrow keys move (and select) within it.
 
 import { h } from './dom.js';
-import { statusLabel } from './config/datasets.js';
+import { statusLabel, statusKind } from './config/datasets.js';
 
 function recordItem(record) {
   const base = `record-${record.id}`;
@@ -34,7 +34,7 @@ function recordItem(record) {
         status &&
           h(
             'span',
-            { class: `record-badge ${record.playable ? 'badge-mock' : 'badge-soon'}`, id: `${base}-badge` },
+            { class: `record-badge badge-${statusKind(record)}`, id: `${base}-badge` },
             h('span', { class: 'visually-hidden' }, ', '),
             status,
           ),

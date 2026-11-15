@@ -58,9 +58,14 @@
         Page Up and Page Down to the north and south edge. W says where you are, C compares with the average,
         J and L change frame. Escape leaves the map.
       </p>
-      <div id="narration-controls"></div>
-      <!-- Which sound engine is running. Readable when navigated to; never announced. -->
-      <p id="engine-status" class="engine-status">Sound: loading…</p>
+      <!-- Narration level, Play legend, and future sound switches. -->
+      <div id="sound-settings"></div>
+      <!-- Which sound engine is running and whether the video loaded.
+           Readable when navigated to; never announced. -->
+      <p id="engine-status" class="engine-status">
+        <span id="sound-status">Sound: loading…</span>
+        <span id="video-status" class="video-status" hidden></span>
+      </p>
     </section>
 
     <aside id="info" class="panel info" aria-labelledby="info-heading">
