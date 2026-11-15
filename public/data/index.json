@@ -3,46 +3,46 @@
     {
       "id": "sst",
       "title": "Global Sea Surface Temperature",
-      "description": "A map of the world's oceans showing how warm the surface water is, and how ocean currents carry that heat around the globe. The warmest water forms a wide band around the equator, and cooler water lies toward the poles. The pattern changes slowly and smoothly, shifting north and south with the seasons.",
-      "colorMeaning": "red and orange = warm water, blue = cold water",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "Ocean currents around the world from March 2007 to March 2008, coloured by how warm the surface water is. The warmest water, around 28 to 30 degrees Celsius, forms a wide band along the equator, and the water cools steadily toward the poles, down to about 0 degrees. The pattern changes slowly, warming in the north during the northern summer and in the south during the southern summer.",
+      "colorMeaning": "blue = cold (0°C), green = mild, yellow = warm, red = hot (32°C)",
+      "source": "https://svs.gsfc.nasa.gov/3912/",
+      "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio",
       "features": "sst/features.json",
       "video": "sst/video.mp4",
-      "mock": true
+      "mock": false
     },
     {
       "id": "nightlights",
       "title": "Change in Night Lights 2012–2023",
-      "description": "A view of Earth at night, seen from space, showing where city and town lights shine. Most of the land is dark, with bright clusters where people live. From 2012 to 2023 many areas grow brighter and new lights appear, showing where cities and towns have expanded.",
-      "colorMeaning": "bright yellow and white = strong night lights, dark = little or no light",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "Earth at night, seen from space by the Suomi NPP satellite, one picture for each year from 2012 to 2023. The oceans and most of the land are dark, and city lights shine where people live: the eastern United States, Europe, India, China and Japan are the brightest. Each year is shown for two and a half seconds, and the lights slowly spread and grow brighter. Comparing 2012 with 2023, lights grew most across China, India, Southeast Asia and the Middle East, while parts of Western Europe, such as the United Kingdom and France, became a little dimmer.",
+      "colorMeaning": "yellow and white = city lights (brighter = more light), black = ocean or unlit land; the background map shows grey snow and ice and brown deserts",
+      "source": "https://svs.gsfc.nasa.gov/5313/",
+      "credit": "NASA's Scientific Visualization Studio. Data: NASA Black Marble (Suomi NPP VIIRS)",
       "features": "nightlights/features.json",
       "video": "nightlights/video.mp4",
-      "mock": true
+      "mock": false
     },
     {
       "id": "lightning",
       "title": "Lightning Events Detected from the ISS 2017–2023",
-      "description": "Lightning flashes recorded by an instrument on the International Space Station between 2017 and 2023. Each flash appears as a brief bright spot. Flashes come in sudden bursts, mostly over land in the tropics, and jump from place to place as storms form and fade.",
-      "colorMeaning": "bright white and blue spots = lightning flashes, dark = no lightning",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "Lightning flashes detected from space by an instrument on the International Space Station, from about 2017 to 2023. Each flash appears as a small yellow dot that stays for a moment and then disappears, so the map shows the last ten days of lightning as time moves forward. Most lightning strikes over land in the tropics, especially in central Africa, South America and Southeast Asia. Storm activity swells once a year, during each northern summer, when storms spread across North America, Europe and Asia. The station only sees between about 52 degrees north and south, so the far north and south stay empty.",
+      "colorMeaning": "yellow dots = lightning flashes from the last ten days; the grey map shows land and country borders, and the darker bands at the top and bottom are areas the space station cannot see",
+      "source": "https://svs.gsfc.nasa.gov/5011/",
+      "credit": "NASA's Scientific Visualization Studio. Data: Lightning Imaging Sensor (LIS) on the International Space Station",
       "features": "lightning/features.json",
       "video": "lightning/video.mp4",
-      "mock": true
+      "mock": false
     },
     {
       "id": "co2",
       "title": "DYAMOND Global Carbon Dioxide",
-      "description": "A computer model of carbon dioxide in Earth's atmosphere. Plumes of carbon dioxide rise from sources on the ground and are carried by the wind, mostly from west to east. Over time the overall amount of carbon dioxide keeps rising.",
-      "colorMeaning": "bright yellow and white = more carbon dioxide, dark = less carbon dioxide",
-      "source": "TODO",
-      "credit": "NASA/SVS",
+      "description": "A computer model of carbon dioxide in the air, shown on a turning globe from 14 January to 3 March 2020. The camera slowly travels westward around the Earth: it starts over East Asia and Australia, passes India and the Indian Ocean, then Africa, crosses the Atlantic Ocean and ends over South America. Orange and red patches show where carbon dioxide near the ground is highest, mostly over the forests of central Africa and the Amazon, and over East Asia. These patches pulse once every model day, building up at night and fading in the daytime, which looks like a quick flicker in the video. The sound follows what is facing you on the globe, so it changes as the camera moves to new regions.",
+      "colorMeaning": "orange to red = high carbon dioxide (red is highest); lower amounts are a faint grey or white haze; the globe underneath shows land, ocean and country borders",
+      "source": "https://svs.gsfc.nasa.gov/5196/",
+      "credit": "NASA's Scientific Visualization Studio. Data: DYAMOND GEOS model",
       "features": "co2/features.json",
       "video": "co2/video.mp4",
-      "mock": true
+      "mock": false
     }
   ]
 }

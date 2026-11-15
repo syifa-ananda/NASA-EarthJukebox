@@ -35,7 +35,7 @@ A static web app (HTML + JavaScript + Tone.js). The user picks a dataset, its vi
 ```
 /public/data/index.json               dataset manifest
 /public/data/<dataset>/features.json  per-frame features
-/public/data/<dataset>/video.mp4      web-sized video (added later)
+/public/data/<dataset>/video.mp4      web-sized video (≤ 720p, no audio)
 /src/analysis/                        Python analysis (Person 1)
 /src/audio/                           Person 2
 /src/ui/                              Person 3

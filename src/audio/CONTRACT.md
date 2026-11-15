@@ -4,100 +4,137 @@ How the UI (Person 3) uses the audio engine, and what the engine needs from the 
 
 ## 1. Loading
 
-Tone.js **15.1.22** is vendored at `src/audio/vendor/Tone.js` (MIT, licence files alongside it). No `npm install` is needed and the site works offline. Import the engine as an ES module. It loads Tone.js by itself if the page hasn't already:
+Tone.js **15.1.22** is vendored at `src/audio/vendor/Tone.js` (MIT, licence files alongside it). No `npm install` is needed and the site works offline. Import the engine as an ES module:
 
 ```html
-<!-- optional: preload Tone.js so the first click starts faster -->
-<script src="src/audio/vendor/Tone.js"></script>
 <script type="module">
   import * as audio from './src/audio/engine/index.js';
 </script>
 ```
 
-`package.json` lists `tone` as a devDependency only to record the version. Section 6 explains how to upgrade.
+**Don't add a `<script>` tag for `vendor/Tone.js`.** Loading Tone creates an AudioContext immediately, and browsers log "AudioContext was not allowed to start" if that happens before a click. The engine loads Tone itself on the first `init()`, which runs inside a click or key press. Until then the page has no AudioContext at all. Everything except sound works before `init()`: `loadPreset`, `loadDataset`, `playFrame`, `probe` (returns the value, `sounded: false`), `describeFrame` and `listPresets`.
 
-## 2. Quick start (UI)
+`package.json` lists `tone` as a devDependency only to record the version. Section 8 explains how to upgrade.
+
+## 2. Quick start: one call per dataset
 
 ```js
 import * as audio from './src/audio/engine/index.js';
 
 const data = await fetch('public/data/sst/features.json').then(r => r.json());
-await audio.loadPreset(data.dataset);           // fine before audio has started
 
-playButton.addEventListener('click', async () => {
-  await audio.play();                           // first call starts audio: must be inside a click/key handler
+// Optional but recommended: start audio from a click before the video plays.
+startButton.addEventListener('click', () => audio.init());
+
+// Wires everything: preset, ranges, play/pause/seek/end, frame changes.
+let detach = audio.syncToVideo(videoEl, data, {
+  onFrame(frame, index) {
+    // e.g. update a (throttled) live region
+    liveRegion.textContent = audio.describeFrame(frame);
+  },
 });
 
-// Keep the sound in sync with the video (frame i lasts 1 / fps seconds).
-video.addEventListener('timeupdate', () => {
-  const i = Math.min(data.frameCount - 1, Math.floor(video.currentTime * data.fps));
-  if (i === lastIndex) return;
-  lastIndex = i;
-  audio.playFrame(data.frames[i], { frameSeconds: 1 / data.fps });
-  liveRegion.textContent = audio.describeFrame(data.frames[i]);   // throttle this, see below
-});
+// Switching dataset:
+detach();
+detach = audio.syncToVideo(videoEl, otherData);
 ```
 
-## 3. API
+## 3. Video sync: `syncToVideo(video, featuresFile, options?)` → `detach()`
+
+- Calls `loadDataset(featuresFile)`: the matching preset plus per-file normalization (section 4).
+- Frame index = `floor(video.currentTime × fps)`, clamped to the last frame. `playFrame` runs **only when the index changes**.
+- Updates every shown video frame with `requestVideoFrameCallback` where the browser has it, otherwise `requestAnimationFrame`; `timeupdate` is a slower backup.
+- `play` → audio plays, `pause` / `ended` → audio pauses, `seeked` → the new frame is applied immediately, even while paused.
+- Respects `playbackRate`: at 2x, percussion is spread over half the time.
+- `options.onFrame(frame, index, soundParams)` runs after each new frame.
+- `options.loadDataset: false` skips loading the preset and ranges, if you did it yourself.
+- `detach()` removes every listener and pauses the audio.
+
+Browsers only allow sound after a user gesture. Clicking the video's play button counts in Chrome, Firefox and Safari, but calling `audio.init()` from your own Start/Play button first is the most reliable.
+
+## 4. Per-file normalization
+
+The real data moves very little (night lights brightness 0.087 → 0.111, co2 `value` 0.018 → 0.049), but those small changes are the real signal. The engine rescales each field to the range the file actually uses before mapping it to sound, so they become clearly audible.
+
+- `analyzeRanges(featuresFile)` → `Ranges`. For `brightness`, `warmth`, `density`, `motion`, `value` and any preset-derived fields, it takes the 5th–95th percentile over all frames.
+- **Minimum span.** A range narrower than the field's minimum span is widened around its centre (`widened: true`), so pure noise doesn't swing the sound. The minimum span is the largest of:
+  - 0.004 (the data has 3 decimals)
+  - 5 % of the field's typical level
+  - 3× its typical frame-to-frame jitter
+
+  Real trends pass. Near-constant fields stay calm, such as `warmth` and the global sst mean, and so do jittery ones, such as co2 `motion` from the camera. A preset can override it per field (`normalize.minSpan`).
+- **Grid.** Grid cells of `0` mean "nothing there" (land, unlit, no lightning, off the globe), so the grid range uses only non-zero cells. That range sets the probe pitch.
+- `pan` and `flashes` are not rescaled: one is a real position, the other a count.
+- **Derived fields.** A preset can compute extra fields from each frame (`derive`). sst does this: its melody follows `seasons`, the northern minus the southern mid-latitude ocean temperature, because the global mean barely moves within a year.
+- `loadDataset(file)` = `loadPreset(file.dataset)` + `setRanges(analyzeRanges(file))`. `syncToVideo` calls it for you.
+- `setRanges(null)` turns normalization off; `getRanges()` returns the current ranges.
+- **Words match the sound.** `describeFrame()` uses the same normalized values as the sound: its level words ("very low" … "very high") and "rising / falling pitch" are **relative to the current dataset's range**. "High night light" means bright for this dataset, and "rising pitch" only appears when the played note actually goes up. Without ranges it falls back to the raw values.
+- **Numbers stay raw.** Wherever an actual number is shown, such as the `value` in `probe()` results, it is the raw contract value.
+
+## 5. API
 
 All functions are named exports of `src/audio/engine/index.js`.
 
 | Function | What it does |
 |---|---|
-| `init()` → `Promise` | Starts audio (`Tone.start()`) and builds the shared sound graph. **Must be called from a user gesture** (click / key press). Safe to call more than once. `play()` and the test page call it for you. |
-| `loadPreset(datasetId)` → `Promise<Preset>` | Switches to that dataset's preset. Unknown ids get the `default` preset, so new datasets still make sound. Fades out, disposes the old instruments and builds the new ones. Can be called before `init()`. |
-| `playFrame(features, { frameSeconds }?)` → `SoundParams` | Feeds one `frames[]` entry. All changes are smoothed with ramps. `frameSeconds` (default 0.5) is how long the frame lasts; percussion hits for `flashes` are spread over it. Missing fields get neutral values. Returns the mapped sound parameters (useful for debugging). |
-| `play()` → `Promise` | Starts or resumes the music. Calls `init()` if needed, so call it from a user gesture. |
-| `pause()` | Pauses the music and releases held notes. `probe()` still works while paused. |
-| `setVolume(v)` | Master volume, `0` (silent) to `1` (full). |
-| `probe(x, y)` → `ProbeResult` | Explore mode: one short tone for grid cell `frame.grid[y][x]` of the latest frame. `x` = column 0–31 (west → east), `y` = row 0–15 (north → south). Column sets the stereo position and the cell value sets the pitch, on the current preset's scale. Returns `{ x, y, value, pan, midi, note, sounded }`. `sounded` is `false` if audio isn't started yet, but the value is still correct. |
-| `describeFrame(features, preset?, prev?)` → `string` | Short sentence for an ARIA live region, e.g. `"high water temperature, rising pitch, panned left"`. `preset` can be a preset or a dataset id (default: current). `prev` defaults to the frame before it. |
-| `dispose()` | Stops everything and frees all audio nodes. `init()` / `play()` can start again afterwards. |
-| `listPresets()` | `[{ id, name, soundDescription }]` for menus and screen readers. |
-| `getPreset(id)`, `hasPreset(id)` | Full preset object; whether an id has its own preset. |
+| `init()` → `Promise` | Starts audio and builds the sound graph. **Call from a user gesture** (click / key press). Safe to call more than once. |
+| `syncToVideo(video, file, options?)` → `detach` | See section 3. |
+| `loadDataset(file)` → `Promise<{preset, ranges}>` | Preset + normalization for a features.json. |
+| `loadPreset(datasetId)` → `Promise<Preset>` | Preset only. Unknown ids get the `default` preset, so new datasets still make sound. Disposes the old instruments. Works before `init()`. |
+| `analyzeRanges(file)`, `setRanges(r)`, `getRanges()` | Normalization, see section 4. |
+| `playFrame(features, { frameSeconds }?)` → `SoundParams` | Feeds one `frames[]` entry. Changes are smoothed with ramps. `frameSeconds` (default 0.5) is how long the frame lasts; `flashes` hits are spread over it. |
+| `play()` → `Promise` / `pause()` | Start or resume / pause the music. `play()` calls `init()` if needed. |
+| `setVolume(v)` | Master volume, `0` to `1`. |
+| `probe(x, y)` → `ProbeResult` | Explore mode: one short tone for cell `frame.grid[y][x]`. `x` = column 0–31 (left → right), `y` = row 0–15 (top → bottom); west/north on the maps, but **co2 is a screen grid on a turning globe**, so don't announce co2 cells as places. Column → stereo position, value → pitch. Returns `{ x, y, value, pan, empty, label, level, midi, note, sounded }`. `value` is raw. **A cell of 0 is empty**: no note, just a soft tick, and `empty: true` with `label` (e.g. "land, where there is no ocean data"). Otherwise `level` is "very low" … "very high" for this dataset. Works while paused. |
+| `playLegend({ duration }?)` → `{ text, duration, sounded }` | Audio legend: plays the scale from the lowest to the highest value (same notes as the probe) in about 3 s, with the music turned down meanwhile. `text` is for screen readers. |
+| `describeFrame(features, preset?, prev?)` → `string` | Short sentence for an ARIA live region. Words are relative to the current dataset's range (section 4). Examples from the real data: `"year 2023, very high night light, steady pitch, centred"`, `"over South America, high carbon dioxide in view, rising pitch, centred"`, `"northern oceans at their warmest, steady pitch, centred"`, `"very high lightning activity, falling pitch, panned left, 3 storm bursts"`. |
+| `startRecording()` / `stopRecording()` → `Promise<Blob>` | Records everything you hear. The blob is webm/opus in Chrome and Firefox, mp4 in Safari (check `blob.type`). `isRecording()`, `isRecordingSupported()`. |
+| `dispose()` | Stops everything and frees all audio nodes. `init()` can start again. |
+| `listPresets()`, `getPreset(id)`, `hasPreset(id)` | Preset info for menus; every preset has a `soundDescription` for screen readers. |
 | `isReady()`, `isPlaying()`, `currentPreset()` | State queries. |
 
 Accessibility notes for the UI:
 
-- **`soundDescription`**: every preset has a plain-language description of how it sounds (`listPresets()` or `currentPreset().soundDescription`). Read it when a dataset is chosen.
-- **Throttle `describeFrame`** to about one announcement every 2–3 seconds. Frames change faster than a screen reader can speak.
-- **Probe from the keyboard**: arrow keys move one cell, then call `probe(x, y)` and announce e.g. `"Column 6, row 9: value 0.62, note E4"` from the result. `src/audio/dev/` has a working example.
+- **`soundDescription`**: read it when a dataset is chosen (`currentPreset().soundDescription`).
+- **Legend**: offer a "Play legend" button. Show or announce the returned `text` while it plays.
+- **Throttle `describeFrame`** to about one announcement every 2–3 seconds, but always deliver the latest sentence when the window opens, so a seek or the last frame isn't left unannounced. `announceLatest()` in `src/audio/dev/dev.js` does this.
+- **Probe from the keyboard**: arrow keys move one cell, then call `probe(x, y)` and announce the result, e.g. `"Column 8, row 5: very high, value 0.92"` or `"Column 6, row 16: empty (no lights: ocean or unlit land)"`. `src/audio/dev/` has a working example.
 
-## 4. How data becomes sound
+## 6. How data becomes sound
 
-Follows the "Ideas for sound" column of the data contract. Every pitch is snapped to a scale (major pentatonic for warm frames, minor pentatonic for cool ones; lightning and co2 always use minor pentatonic). Every change is ramped, never jumped.
+Follows the "Ideas for sound" column of the data contract, with per-preset changes listed below. Every pitch is snapped to a scale. In the real data `warmth` barely changes, so each preset uses one fixed key: major pentatonic for sst and nightlights, minor pentatonic for lightning and co2. Only `default` switches key with `warmth`. Every change is ramped, never jumped.
 
-| Field | Sound |
+| Field (after normalization) | Sound |
 |---|---|
 | `value` | pitch of the melody / chord root on the scale; the probe's pitch |
 | `brightness` | loudness and filter cutoff (dark → muffled, bright → open) |
-| `warmth` | key (above the preset's threshold → major, below → minor) and a slightly brighter timbre |
+| `warmth` | key (warm → major, cool → minor) and a slightly brighter timbre |
 | `density` | number of chord voices and how often notes play |
 | `pan` | stereo position |
 | `motion` | tempo, tremolo, and pad swells |
 | `flashes` | percussion hits, one per flash (capped per preset) |
 | `grid` | used only by `probe(x, y)` |
 
-Presets in `src/audio/presets/` can change which field drives what (`sources`), how strongly (`weights`), the ranges (`mapping`) and the instruments (`layers`):
+| Preset | Sound (real data) | Differences from the default mapping |
+|---|---|---|
+| `sst` | flowing pads; the melody climbs from March to its top in August–September and sinks again by March, following the seasons; soft bells on top | pitch ← derived `seasons` (northern minus southern mid-latitude ocean, land ignored) |
+| `nightlights` | bells that get louder, brighter, higher and busier from 2012 to 2023; small dip in 2020, big fill-in in 2022–23; a low chime at each new year | note rate and tempo ← brightness; year-marker layer on `motion`; descriptions start with the year |
+| `lightning` | a thunder thump and crackle for each storm burst, placed where it bursts; a minor pad that swells each northern summer; quiet start and end | pan moves instantly (`panRamp` 0.05 s) so each hit lands at its storm |
+| `co2` | a low drone following the globe tour: thicker, louder, brighter and higher over East Asia and the Amazon (with a clashing tension note), thin and dark over Africa and the Atlantic | loudness ← density, filter ← value (the globe's brightness is deserts, not CO₂); gentle pan and tempo (camera); descriptions start with the region |
+| `default` | pluck melody, soft pad and a light knock for flashes; used for any other dataset id | none |
 
-| Preset | Sound |
-|---|---|
-| `sst` | flowing FM pads, motion swells them, temperature (`value`) sets the pitch, soft bells on top |
-| `nightlights` | bells whose number grows with brightness, so the piece fills in from 2012 to 2023 |
-| `lightning` | thunder and crackle hit on each flash, panned to the storm; sparse minor pad |
-| `co2` | low drone that thickens with density, rises with `value`, and adds a clashing note when values are high |
-| `default` | pluck melody, soft pad and a light knock for flashes; used for any other dataset id |
+**Levels.** Each preset has a `trimDb` setting so all presets sound equally loud: about −20 dB RMS, measured from recordings of the real data. Peaks stay below −1 dBFS: a limiter plus a soft clipper on the final output catch fast attacks. Re-measure after changing instruments or data.
 
-## 5. Requests to Person 1 (data)
+## 7. Requests to Person 1 (data)
 
-Nothing here blocks the audio; the current contract is enough. These would make it better:
+Nothing here blocks the audio; the current contract is enough.
 
-1. **Units for `value`** (optional fields in `index.json`, e.g. `valueUnit: "°C"`, `valueMin: -2`, `valueMax: 32`). Then `describeFrame` and the probe could say "about 28 °C" instead of "high".
+1. **Units for `value` and the grid** (optional fields in `index.json`). For sst, cells are temperature ÷ 32 °C, so `valueScale: 32, valueUnit: "°C"` would let the probe say "about 28 °C" instead of "very high". nightlights, lightning and co2 have no physical unit, so they keep the relative words.
 2. **Ids for new datasets** (aerosols, GEDI forest height, atmospheric rivers, air quality). Any new id plays with the `default` preset straight away; tell us the id and we'll add a dedicated preset.
-3. **Aerosols, per particle type.** The plan is one instrument layer per particle type (dust, smoke, sea salt, sulfate). That needs a 0–1 value per type per frame, e.g. `"types": { "dust": 0.4, "smoke": 0.1 }`. This would be a contract change, so only if the whole team agrees.
-4. **Calibrated ranges.** The mocks use narrow ranges (e.g. sst `warmth` 0.31–0.39, lightning `brightness` 0.04–0.10), and presets currently scale these up with `weights`. Once real frames exist we'll retune the weights; tell us if the real ranges differ a lot.
+3. **Aerosols, per particle type.** The plan is one instrument layer per particle type. That needs a 0–1 value per type per frame (e.g. `"types": { "dust": 0.4, "smoke": 0.1 }`). This would be a contract change, so only if the whole team agrees.
+4. **Keep video and data in step.** `syncToVideo` relies on frame `i` being at `i / fps` seconds. The current videos match: sst 66.7 s for 133 frames, nightlights 30.0 s for 60, lightning 100.1 s for 200, co2 39.2 s for 78.
 
-## 6. Upgrading Tone.js
+## 8. Upgrading Tone.js
 
 ```bash
 npm install -D tone@<version>

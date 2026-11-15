@@ -79,6 +79,7 @@
  * driving field from 0 to 1.
  * @typedef {object} Mapping
  * @property {number} ramp                   Seconds for parameter ramps (smoothing).
+ * @property {number} [panRamp]              Seconds for pan ramps (default: ramp).
  * @property {[number, number]} volumeDb     Layer loudness range in dB.
  * @property {[number, number]} filterHz     Filter cutoff range (exponential).
  * @property {[number, number]} bpm          Tempo range.
@@ -92,17 +93,19 @@
  * @property {number} maxHits                Max percussion hits per frame.
  * @property {number} hitWindow              Seconds over which a frame's hits are spread.
  * @property {{decay: number, wet: number}} reverb
+ * @property {number} trimDb                 Whole-preset level trim so presets sound equally loud.
  */
 
 /**
  * One instrument layer of a preset.
  * @typedef {object} LayerSpec
  * @property {'pluck'|'bell'|'pad'|'drone'|'thunder'|'crackle'|'knock'} kind  Instrument.
- * @property {'arp'|'chord'|'drone'|'hits'} role
- *   arp:   one chord tone per tick (rate from `rate`/`tempo`).
- *   chord: the whole chord every `every`.
- *   drone: held notes that follow pitch; voices fade in with `voices`.
- *   hits:  percussion, one hit per flash.
+ * @property {'arp'|'chord'|'drone'|'hits'|'marker'} role
+ *   arp:    one chord tone per tick (rate from `rate`/`tempo`).
+ *   chord:  the whole chord every `every`.
+ *   drone:  held notes that follow pitch; voices fade in with `voices`.
+ *   hits:   percussion, one hit per flash.
+ *   marker: one root note when `field` (normalized) rises past `threshold`.
  * @property {number} volume              Layer volume in dB.
  * @property {number} [octave]            Octave offset from the preset root.
  * @property {string} [noteLength]        arp: note length, e.g. '8n'.
@@ -111,6 +114,8 @@
  * @property {number} [swellDb]           chord: dB the layer drops when `swell` is 0.
  * @property {number[]} [intervals]       drone: semitones above the root, one voice each.
  * @property {number} [tensionInterval]   drone: semitones of the clashing voice.
+ * @property {string} [field]             marker: field to watch, e.g. 'motion'.
+ * @property {number} [threshold]         marker: 0-1 level that triggers it.
  */
 
 /**
@@ -121,6 +126,17 @@
  * @property {string} name               Display name.
  * @property {string} soundDescription   Plain-language description of the sound, for screen readers.
  * @property {string} valueLabel         What `value` means, e.g. 'sea surface temperature'.
+ * @property {{low: string, high: string}} valueWords  Legend wording, e.g. 'cooler water' / 'warmer water'.
+ * @property {string} [legendExtra]      Extra sentence for the audio legend.
+ * @property {string} [legendPan]        Legend sentence about left/right (default: west/east of the map).
+ * @property {string} [emptyLabel]       What a grid value of 0 means here, e.g. 'land, where there is no ocean data'.
+ * @property {(frame: Frame) => Record<string, number>} [derive]
+ *   Extra fields computed from each frame (e.g. from the grid). They are
+ *   normalized like contract fields and can be used in `sources`.
+ * @property {{minSpan?: Record<string, number>}} [normalize]  Per-field minimum span overrides.
+ * @property {{field?: string, levels?: string[], prefix?: (frame: Frame, seconds: number) => string|null,
+ *             motionWord?: string|null, flashWords?: [string, string]}} [describe]
+ *   Wording for describeFrame (see engine/describe.js).
  * @property {number} rootMidi           Lowest note of the scale range (MIDI).
  * @property {number} octaves            Octaves the pitch can span.
  * @property {{warm: string, cool: string}} scales  Scale names from scales.js.
@@ -129,6 +145,23 @@
  * @property {Sources} sources
  * @property {Mapping} mapping
  * @property {LayerSpec[]} layers
+ */
+
+/**
+ * Robust range of one field in a features.json (5th-95th percentile).
+ * @typedef {object} ValueRange
+ * @property {number} lo
+ * @property {number} hi
+ * @property {boolean} widened  True if the real range was narrower than the minimum span.
+ */
+
+/**
+ * Output of analyzeRanges(file): how each field is rescaled to 0-1.
+ * @typedef {object} Ranges
+ * @property {string|null} dataset
+ * @property {number} frameCount
+ * @property {Record<'brightness'|'warmth'|'density'|'motion'|'value', ValueRange>} fields
+ * @property {ValueRange} grid  Range of all grid cells (used for probe pitch).
  */
 
 /**
@@ -150,6 +183,7 @@
  * @property {number} tension        0-1.
  * @property {number} hits           Percussion hits to play for this frame.
  * @property {number} velocity       0-1.
+ * @property {Record<string, number>} levels  The frame's (normalized) numeric fields.
  */
 
 /**
@@ -157,10 +191,13 @@
  * @typedef {object} ProbeResult
  * @property {number} x       Column used (0-31).
  * @property {number} y       Row used (0-15).
- * @property {number} value   Grid value 0-1 at that cell.
+ * @property {number} value   Raw grid value 0-1 at that cell (not normalized).
+ * @property {boolean} empty  True if the cell is 0 = nothing there (a soft tick plays, no note).
+ * @property {string|null} label  When empty: the preset's emptyLabel, e.g. 'land'.
+ * @property {string|null} level  When not empty: 'very low' ... 'very high', relative to this dataset.
  * @property {number} pan     -1 to 1.
- * @property {number} midi    Note played.
- * @property {string} note    Note name, e.g. 'E4'.
+ * @property {number|null} midi  Note played (null when empty).
+ * @property {string|null} note  Note name, e.g. 'E4' (null when empty).
  * @property {boolean} sounded  False if audio is not started yet.
  */
 
