@@ -92,18 +92,35 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     return levelWord(normalizeValue(result.value, rangesFor(s.record, s.data).grid));
   }
 
-  /** "About 28 °C" for sst, "0.42" for the others. */
-  function amount(value) {
+  /**
+   * "about 28 °C" for sst, "0.42" for the others. With band: true, sst adds a
+   * short descriptor: "about 28 °C, warm tropical water".
+   */
+  function amount(value, { band = false } = {}) {
     const u = s.record.valueUnit;
     if (!u) return value.toFixed(2);
-    return `about ${Math.round(value * u.scale)} ${u.unit}`;
+    const real = value * u.scale;
+    const words = band ? u.bands?.find((b) => real >= b.min)?.words : null;
+    return `about ${Math.round(real)} ${u.unit}${words ? `, ${words}` : ''}`;
   }
 
-  /** "Very high, about 28 °C." / "High night light, 0.42." / "Land, where there is no ocean data." */
+  /** Lightning rows 0–2 and 13–15: beyond what the ISS can see (config → outside). */
+  const isOutside = (y = s.y) => !!s.record.outside?.rows.includes(y);
+
+  /**
+   * What an empty cell means: the dataset's "outside" rows first, then the
+   * UI's own emptyLabel (co2), then the engine's probe label.
+   */
+  function emptyLabel(result) {
+    if (isOutside()) return s.record.outside.label;
+    return s.record.emptyLabel ?? result.label ?? 'no data';
+  }
+
+  /** "Very high, about 28 °C, warm tropical water." / "High night light, 0.42." / "Land, where there is no ocean data." */
   function valueWords(result) {
-    if (result.empty) return `${upperFirst(result.label ?? 'no data')}.`;
+    if (result.empty) return `${upperFirst(emptyLabel(result))}.`;
     const level = upperFirst(levelOf(result));
-    if (s.record.valueUnit) return `${level}, ${amount(result.value)}.`;
+    if (s.record.valueUnit) return `${level}, ${amount(result.value, { band: true })}.`;
     return `${level} ${preset().valueLabel ?? 'value'}, ${amount(result.value)}.`;
   }
 
@@ -136,6 +153,10 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     cursorEl.style.top = `${(s.y / rows()) * 100}%`;
     cursorEl.style.width = `${100 / cols()}%`;
     cursorEl.style.height = `${100 / rows()}%`;
+    // Over the video's own label (co2 date): thin outline only.
+    const k = s.record?.keepClear;
+    const overlaps = !!k && (s.x + 1) / cols() > k.left && s.x / cols() < k.right && (s.y + 1) / rows() > k.top && s.y / rows() < k.bottom;
+    cursorEl.classList.toggle('is-thin', overlaps);
   }
 
   function showReadout(result) {
@@ -147,7 +168,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     const r = result ?? { value: cellValue(), empty: cellValue() === 0, label: 'no data' };
     const parts = [upperFirst(place().name)];
     if (r.empty) {
-      parts.push(r.label ?? 'no data');
+      parts.push(emptyLabel(r));
     } else {
       parts.push(levelOf(r), amount(r.value));
       if (r.note) parts.push(r.note);
@@ -398,7 +419,8 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
       clearTimeout(s.announceTimer);
       const value = cellValue();
       if (value === 0) {
-        announce('No data here to compare.', { force: true });
+        const why = isOutside() ? `${upperFirst(s.record.outside.label)}, nothing to compare.` : 'No data here to compare.';
+        announce(why, { force: true });
         return;
       }
       const cells = frame().grid.flat().filter((v) => v > 0);

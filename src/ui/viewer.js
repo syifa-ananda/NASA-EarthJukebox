@@ -13,7 +13,8 @@ import { describeFrame } from './describe.js';
 const GREY_RAMP = ['#000000', '#ffffff'];
 
 const viewerEl = document.getElementById('viewer');
-const statusEl = document.getElementById('viewer-status');
+const statusEl = document.getElementById('viewer-status'); // messages inside the box
+const captionEl = document.getElementById('frame-caption'); // frame + date, below the picture
 let canvas = null;
 let video = null;
 let mode = 'none'; // 'none' | 'video' | 'heatmap'
@@ -21,9 +22,23 @@ let contentAspect = 2;
 let videoCleanup = null;
 const layoutListeners = new Set();
 
+/** A message in the middle of the viewer box (loading, errors, not ready). */
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
   statusEl.className = `viewer-status${kind ? ` is-${kind}` : ''}`;
+  statusEl.hidden = false;
+  if (captionEl) captionEl.hidden = true;
+}
+
+/**
+ * Frame and date, shown BELOW the picture so no overlay covers the video
+ * (co2 has its own date label in the bottom-right corner).
+ */
+function setCaption(text) {
+  statusEl.hidden = true;
+  if (!captionEl) return;
+  captionEl.textContent = text;
+  captionEl.hidden = false;
 }
 
 // ---------- layout: the picture area inside the viewer ----------
@@ -262,7 +277,7 @@ export function showError(text) {
  * already on that frame); in heatmap mode the grid is drawn.
  */
 export function showFrame(record, data, index, { caption } = {}) {
-  setStatus(caption ?? `Frame ${index + 1} of ${data.frameCount}`, 'caption');
+  setCaption(caption ?? `Frame ${index + 1} of ${data.frameCount}`);
   if (mode === 'video') return;
   const frame = frameAt(data, index);
   const c = getCanvas(data.grid.cols, data.grid.rows);

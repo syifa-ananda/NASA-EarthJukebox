@@ -607,11 +607,33 @@ a:hover {
 .player > h2 { grid-row: 1; }
 .player > .viewer,
 .player > .sound-map { grid-row: 2; }
-.player > .narration-caption { grid-row: 3; }
-.player > .explore-readout { grid-row: 4; }
-.player > #transport { grid-row: 5; }
-.player > #sound-settings { grid-row: 6; }
-.player > .engine-status { grid-row: 7; }
+.player > .frame-caption { grid-row: 3; }
+.player > .narration-caption { grid-row: 4; }
+.player > .explore-readout { grid-row: 5; }
+.player > #transport { grid-row: 6; }
+.player > #sound-settings { grid-row: 7; }
+.player > .engine-status { grid-row: 8; }
+
+/* Frame + date line under the picture. */
+.frame-caption {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.frame-caption[hidden],
+.viewer-status[hidden] {
+  display: none;
+}
+
+/* Explore cursor inside a dataset's keep-clear area (co2's date label):
+   a thin outline only, so the label stays readable. */
+.map-cursor.is-thin {
+  border-width: 1px;
+  outline-width: 1px;
+  box-shadow: none;
+}
 
 /* ---------- Sound map (explore mode) ---------- */
 

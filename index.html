@@ -40,6 +40,8 @@
         <!-- Not a live region: all narration goes through #announcer. -->
         <p id="viewer-status" class="viewer-status">Loading datasets…</p>
       </div>
+      <!-- Frame and date under the picture (not on it, so nothing covers the video's own labels). -->
+      <p id="frame-caption" class="frame-caption" hidden></p>
       <!-- Live description for sighted users, about once a second. NOT a live region. -->
       <p id="narration-caption" class="narration-caption"></p>
       <!-- Explore-mode readout for sighted users. NOT a live region. -->
@@ -85,7 +87,7 @@
 
   <footer class="site-footer">
     <div class="wrap">
-      <p>Visualizations: NASA Scientific Visualization Studio and the NASA Earth Information Center. Built for the NASA Space Apps Challenge 2026.</p>
+      <p>Visualizations by <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>, shown at the NASA Earth Information Center. Built for the NASA Space Apps Challenge 2026.</p>
     </div>
   </footer>
 

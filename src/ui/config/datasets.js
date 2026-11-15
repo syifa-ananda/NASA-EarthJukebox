@@ -37,6 +37,14 @@
 //                quantity (sst: value = °C / 32, docs/data-contract.md §4)
 //   quiet        optional { field, frames, text }: when `field` is 0 for this
 //                many frames in a row, narration says `text` once and waits
+//   emptyLabel   optional: what an empty grid cell (value 0) means, for explore.
+//                Wins over the engine's probe label when set.
+//   outside      optional { rows, label }: grid rows the instrument can't see at
+//                all; explore reads their (always 0) cells with `label`
+//   keepClear    optional { left, top, right, bottom } (fractions of the picture):
+//                part of the video that UI overlays must not cover (co2 date label)
+//   valueUnit.bands  optional [{ min, words }], highest min first: a short plain
+//                descriptor after the number ("about 28 °C, warm tropical water")
 //   sounds       visual→sound mappings ({ from, to, detail }) for the info panel.
 //                Playable records: kept in line with src/audio/CONTRACT.md §6 and
 //                src/audio/presets/<id>.js. Coming-soon records: planned placeholders.
@@ -63,7 +71,17 @@ export const RECORDS = [
     // docs/sources.md → sst → "Data dates: 2007-03-25 to 2008-03-03".
     time: { kind: 'dates', start: '2007-03-25', end: '2008-03-03', precision: 'month' },
     // docs/data-contract.md §4: value = temperature / 32 °C.
-    valueUnit: { scale: 32, unit: '°C', round: 1 },
+    valueUnit: {
+      scale: 32,
+      unit: '°C',
+      round: 1,
+      // Person 1's wording tips: ≥ 25 °C warm tropical, 10–25 °C mild, < 10 °C cold.
+      bands: [
+        { min: 25, words: 'warm tropical water' },
+        { min: 10, words: 'mild water' },
+        { min: -Infinity, words: 'cold water' },
+      ],
+    },
     sounds: [
       { from: 'The seasons', to: 'melody', detail: 'The melody climbs as the northern oceans warm toward the northern summer, is highest around August and September, and sinks again as the southern oceans warm.' },
       { from: 'Change in the currents', to: 'pad swells', detail: 'When the currents change faster, the pads swell louder and the tempo lifts a little.' },
@@ -122,12 +140,14 @@ export const RECORDS = [
     // The first ~13 s and the last ~20 s have no storm bursts (docs/data-contract.md §4).
     // Mid-video gaps are at most 2 frames, so 4 frames = a real quiet stretch.
     quiet: { field: 'flashes', frames: 4, text: 'no lightning right now' },
+    // Rows 0–2 and 13–15 are beyond about ±52°, which the ISS can't see (Person 1).
+    outside: { rows: [0, 1, 2, 13, 14, 15], label: "outside the space station's view" },
     sounds: [
       { from: 'Storm bursts', to: 'thunder and crackle', detail: 'Each storm bursting on the map is a deep thunder thump with a crackle on top. Busy moments sound like a drum roll.' },
       { from: 'Where the storm bursts', to: 'left or right', detail: 'Each hit is placed where the storm bursts: west in your left ear, east in your right.' },
       { from: 'Lightning activity', to: 'pad', detail: 'A quiet minor-key pad grows louder and higher once a year, when storms spread across the north in the northern summer.' },
       { from: 'Change between frames', to: 'trembling and tempo', detail: 'When storms move fast, the pad trembles and the tempo speeds up.' },
-      { from: 'Start and end', to: 'quiet', detail: 'The start and the last twenty seconds are quiet while the video builds up and fades out.' },
+      { from: 'Start and end', to: 'quiet', detail: 'The start and the last twenty seconds are quiet, while the video fades in and out.' },
     ],
   },
   {
@@ -145,6 +165,12 @@ export const RECORDS = [
     summary: { subject: 'carbon dioxide in view', high: 'Most carbon dioxide in view' },
     // docs/data-contract.md §2: a screen grid on a turning globe, not a map.
     gridKind: 'screen',
+    // Person 1: empty cells include both the globe's low-CO2 areas and the black
+    // background, so never say "space" or "outside the Earth".
+    emptyLabel: 'low or no carbon dioxide here',
+    // The video's own date label (docs/sources.md: x 1520–1910, y 1005–1055 of
+    // 1920 × 1080), as fractions of the picture. Nothing of ours may cover it.
+    keepClear: { left: 0.79, top: 0.93, right: 1, bottom: 0.98 },
     aspect: 1280 / 720,
     // docs/sources.md → co2: date label "14 Jan 2020 22:00" to "03 Mar 2020 08:00".
     time: { kind: 'dates', start: '2020-01-14T22:00', end: '2020-03-03T08:00', precision: 'day' },
@@ -265,6 +291,9 @@ export function mergeRecords(indexEntries = []) {
       time: cfg.time ?? null,
       valueUnit: cfg.valueUnit ?? null,
       quiet: cfg.quiet ?? null,
+      emptyLabel: cfg.emptyLabel ?? null,
+      outside: cfg.outside ?? null,
+      keepClear: cfg.keepClear ?? null,
       sounds: cfg.sounds ?? [],
       playable: !!entry,
       mock: !!entry?.mock,
@@ -294,6 +323,9 @@ export function mergeRecords(indexEntries = []) {
       time: null,
       valueUnit: null,
       quiet: null,
+      emptyLabel: null,
+      outside: null,
+      keepClear: null,
       sounds: [],
       playable: true,
       mock: !!entry.mock,

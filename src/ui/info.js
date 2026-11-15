@@ -63,12 +63,17 @@ function soundList(record) {
 function sourceBlock(record) {
   const url = record.source;
   const valid = typeof url === 'string' && url.startsWith('https://');
-  return h(
-    'p',
-    {},
-    `Credit: ${record.credit || 'NASA/SVS'}. `,
-    valid ? h('a', { href: url }, 'View the original visualization on NASA SVS') : 'Source link coming soon.',
-  );
+  const svsId = valid ? url.match(/svs\.gsfc\.nasa\.gov\/(\d+)/)?.[1] : null;
+  return [
+    h('p', { class: 'credit' }, `Credit: ${record.credit || 'NASA/SVS'}.`),
+    h(
+      'p',
+      {},
+      valid
+        ? h('a', { href: url }, `View the original visualization on NASA's Scientific Visualization Studio${svsId ? ` (SVS #${svsId})` : ''}`)
+        : 'Source link coming soon.',
+    ),
+  ];
 }
 
 export function renderInfo(container, record) {
