@@ -3,7 +3,7 @@
 //
 // The URL hash carries the jukebox settings (#record=…&keys=off…).
 // This page uses keys=off itself (single-key shortcuts, here only "?") and
-// hands the whole hash back through the "Jukebox" links (minus the narration
+// hands the whole hash back through the "Home" links (minus the narration
 // key of older links, which no longer exists).
 
 import { createShortcutsDialog } from './shortcuts-dialog.js';
