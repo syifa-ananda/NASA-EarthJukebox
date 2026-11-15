@@ -24,15 +24,16 @@ const DRY_ROLES = new Set(['hits', 'pulse']);
  * @param {Awaited<ReturnType<import('./graph.js').createGraph>>} graph
  * @param {import('../types.js').Preset} preset
  * @param {() => import('../types.js').SoundParams | null} getParams  Latest params.
+ * @param {{samples?: (kind: string) => Record<string, AudioBuffer> | null}} [opts]  Sampled instruments.
  */
-export function createLayer(spec, graph, preset, getParams) {
+export function createLayer(spec, graph, preset, getParams, opts = {}) {
   const out = new Tone.Volume(spec.volume ?? -12)
     .connect(DRY_ROLES.has(spec.role) ? graph.dryIn : graph.layerIn);
   const shift = 12 * (spec.octave ?? 0);
 
   if (spec.role === 'drone') return droneLayer(spec, preset, out, shift, getParams);
 
-  const inst = createInstrument(spec.kind, spec);
+  const inst = createInstrument(spec.kind, spec, opts);
   inst.output.connect(out);
   const base = {
     dispose() {

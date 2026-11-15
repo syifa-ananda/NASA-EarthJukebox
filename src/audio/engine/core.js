@@ -5,6 +5,7 @@ import { Tone, unlockAudio, loadTone } from '../tone.js';
 import { createGraph } from './graph.js';
 import { createLayer } from './layers.js';
 import { createAlarm, previewAlarm as previewAlarmVoice } from './alarm.js';
+import { SAMPLE_SETS, loadSampleSet, sampleBuffers, sampleStatus, resetFailed } from './samples.js';
 import { mapFrame, sanitizeFrame, withDerived } from './mapping.js';
 import { analyzeRanges as analyzeFile, normalizeFrame, normalizeValue } from './normalize.js';
 import { describeFrame as describeText, legendText, levelWord } from './describe.js';
@@ -21,6 +22,8 @@ const state = {
   mix: DEFAULT_MIX,         // 'acoustic' | 'electronic'
   alarmEnabled: true,       // user setting: false silences the climate alarm everywhere
   switchOverrides: {},      // layer switches set with setSwitch(), e.g. { angklung: false }
+  sampled: true,            // use recorded strings/piano when loaded (setSampled)
+  sampleListeners: new Set(),
   preset: resolvePreset('default'),
   builtKey: null,           // preset id + mix + switches whose layers currently exist
   layers: [],
@@ -72,6 +75,55 @@ export const getPreset = (id) => resolve(id);
 /** Short list for menus: id, name and soundDescription (for the current mix). */
 export const listPresets = () => listAll({ mix: state.mix, alarm: state.alarmEnabled });
 
+/** True if recorded strings and piano are used (when loaded); false = synth versions. */
+export const isSampled = () => state.sampled;
+
+/**
+ * Sample loading state for the current preset and mix:
+ *   state 'none'     the preset uses no sampled instruments
+ *         'idle'     not loaded yet: they load during init(), before anything plays
+ *         'off'      sampled instruments are turned off (setSampled(false)): synth versions
+ *         'loading'  "Loading samples..."
+ *         'ready'    playing the recorded samples
+ *         'fallback' a sample failed or took over 8 s: synth versions instead
+ * @returns {{state: 'none'|'idle'|'off'|'loading'|'ready'|'fallback', kinds: Record<string, string>}}
+ */
+export function getSampleStatus() {
+  const kinds = {};
+  for (const k of sampledKinds(state.preset)) kinds[k] = sampleStatus(k);
+  const values = Object.values(kinds);
+  let st = 'ready';
+  if (!values.length) st = 'none';
+  else if (!state.sampled) st = 'off';
+  else if (values.includes('loading')) st = 'loading';
+  else if (values.includes('idle')) st = 'idle';
+  else if (values.includes('failed')) st = 'fallback';
+  return { state: st, kinds };
+}
+
+/**
+ * Get told when the sample state changes (e.g. to show "Loading samples..."
+ * in a live region). Returns a function that stops the updates.
+ * @param {(status: ReturnType<typeof getSampleStatus>) => void} fn
+ */
+export function onSampleStatus(fn) {
+  state.sampleListeners.add(fn);
+  return () => state.sampleListeners.delete(fn);
+}
+
+/**
+ * Recorded strings and piano on (default) or off (synth versions), e.g. to
+ * compare them. Turning it on again retries samples that failed.
+ * @param {boolean} on
+ * @returns {Promise<void>}
+ */
+export async function setSampled(on) {
+  state.sampled = Boolean(on);
+  if (state.sampled) resetFailed();
+  notifySamples();
+  await rebuild();
+}
+
 /**
  * Optional layers of the current preset and mix, and whether each is on,
  * e.g. { angklung: true } for nightlights in the acoustic mix ({} if none).
@@ -96,6 +148,7 @@ export function init() {
     await Tone.start();
     state.graph = await createGraph();
     applyVolume(0.01);
+    await prepareSamples(state.preset);   // recorded instruments load before anything plays
     buildPreset(state.preset);
     state.ready = true;
   })().catch((err) => {
@@ -438,7 +491,8 @@ function buildPreset(preset) {
   g.reverb.wet.rampTo(reverb.wet, 0.5);
 
   const specs = preset.layers.filter((spec) => !spec.switch || switchOn(spec.switch));
-  state.layers = specs.map((spec) => createLayer(spec, g, preset, () => state.params));
+  const opts = { samples: state.sampled ? sampleBuffers : null };
+  state.layers = specs.map((spec) => createLayer(spec, g, preset, () => state.params, opts));
   if (preset.alarm?.on) {
     state.alarm = createAlarm(g, preset);
     state.alarm.setEnabled(state.alarmEnabled);
@@ -478,18 +532,52 @@ function switchOn(name) {
   return state.switchOverrides[name] ?? state.preset.switches?.[name] ?? true;
 }
 
-/** Identifies what is built: rebuild only when the preset, mix or a switch changed. */
+/** Identifies what is built: rebuild only when the preset, mix, a switch or the samples changed. */
 function buildKey(preset) {
   const switches = switchNames(preset).map((n) => `${n}=${switchOn(n)}`);
-  return [preset.id, preset.mix, ...switches].join('|');
+  const samples = sampledKinds(preset).map((k) => `${k}=${state.sampled && sampleStatus(k) === 'ready'}`);
+  return [preset.id, preset.mix, ...switches, ...samples].join('|');
 }
 
-/** Rebuild the current preset's instruments if needed, with a quick fade so the swap doesn't click. */
+/** Instrument kinds of the preset (current mix, switched-on layers) that have recorded samples. */
+function sampledKinds(preset) {
+  const kinds = preset.layers.filter((spec) => !spec.switch || switchOn(spec.switch)).map((spec) => spec.kind);
+  return [...new Set(kinds)].filter((k) => k in SAMPLE_SETS);
+}
+
+function notifySamples() {
+  const status = getSampleStatus();
+  state.sampleListeners.forEach((fn) => {
+    try {
+      fn(status);
+    } catch {
+      // a listener's error must not break the audio
+    }
+  });
+}
+
+/** Load the preset's recorded instruments (each set once; 8 s timeout, never throws). */
+async function prepareSamples(preset) {
+  const kinds = state.sampled ? sampledKinds(preset) : [];
+  const loads = kinds.map((k) => loadSampleSet(k));   // marks them 'loading' straight away
+  notifySamples();
+  if (!loads.length) return;
+  await Promise.all(loads);
+  notifySamples();
+}
+
+/**
+ * Rebuild the current preset's instruments if needed, with a quick fade so the
+ * swap doesn't click. Samples load first; the old instruments keep playing meanwhile.
+ */
 async function rebuild() {
   if (state.initPromise) await state.initPromise.catch(() => {});
-  if (!state.ready || state.builtKey === buildKey(state.preset)) return;
-
+  if (!state.ready) return;
   const token = ++state.loadToken;
+  await prepareSamples(state.preset);
+  if (token !== state.loadToken || !state.ready) return;   // a newer call took over
+  if (state.builtKey === buildKey(state.preset)) return;
+
   state.graph.fader.gain.rampTo(0, 0.08);
   await wait(100);
   if (token !== state.loadToken || !state.ready) return;   // a newer call took over
