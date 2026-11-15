@@ -1,20 +1,15 @@
-// "Sound settings" group in the player panel: narration level, the text of the
-// audio legend once it has played, and room for more switches (e.g. Person 2's
-// upcoming climate alarm: call addSwitch() once its API is known).
+// "Sound settings" group in the player panel: the text of the audio legend
+// once it has played, and on/off switches (today: the climate alarm, added by
+// alarm-setting.js with addSwitch()).
 // The "Audio legend" button itself is in the control bar (transport.js) and
 // calls playLegend() here, as does the G shortcut.
 
 import { h } from './dom.js';
 import * as audio from './adapters/audio.js';
 import { announce } from './narrator.js';
-import { renderNarrationControls } from './narration-controls.js';
 
-/**
- * @param {HTMLElement} container
- * @param {{ level: string, onNarrationChange: (level: string) => void }} opts
- */
-export function createSoundSettings(container, { level, onNarrationChange }) {
-  const narrationSlot = h('div', { class: 'setting-narration' });
+/** @param {HTMLElement} container */
+export function createSoundSettings(container) {
   // Shows the legend text while / after it plays. Not a live region: the
   // narrator speaks it once.
   const legendText = h('p', { id: 'legend-text', class: 'legend-text', hidden: true });
@@ -25,13 +20,10 @@ export function createSoundSettings(container, { level, onNarrationChange }) {
       'div',
       { class: 'sound-settings', role: 'group', 'aria-labelledby': 'sound-settings-heading' },
       h('h3', { id: 'sound-settings-heading' }, 'Sound settings'),
-      narrationSlot,
       legendText,
       switches,
     ),
   );
-
-  const narrationControls = renderNarrationControls(narrationSlot, { level, onChange: onNarrationChange });
 
   let hasData = false;
 
@@ -64,7 +56,6 @@ export function createSoundSettings(container, { level, onNarrationChange }) {
   setEnabled(false);
 
   return {
-    narrationControls,
     playLegend,
     /** A record's data arrived (or went away). */
     setContext(record, data) {

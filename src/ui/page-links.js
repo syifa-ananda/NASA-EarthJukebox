@@ -1,11 +1,11 @@
 // Links shared by both pages (index.html and how-to-listen.html).
 //
-// The settings live in the URL hash (#record=…&narration=…[&keys=off][&alarm=off]).
+// The settings live in the URL hash (#record=…[&keys=off][&alarm=off][&left=…][&info=…]).
 //   - Skip links and other in-page links move focus to their target without
 //     overwriting that hash, so a reload still restores the settings.
 //   - Links marked data-keep-state (the header nav, "Back to the jukebox")
 //     carry the same hash to the other page, so going to "How to listen" and
-//     back keeps the dataset, narration level and switches. The browser's Back
+//     back keeps the dataset, layout and switches. The browser's Back
 //     button keeps them anyway (it returns to the jukebox's own URL).
 
 /** Click handler for links like href="#player": focus the target, keep the hash. */

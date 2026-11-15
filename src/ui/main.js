@@ -1,7 +1,7 @@
 // Entry point for the Earth Information Jukebox UI.
 
 import { loadIndex, loadFeatures } from './adapters/data.js';
-import { mergeRecords, statusLabel, RECORDS } from './config/datasets.js';
+import { mergeRecords, statusLabel, sourceLabel, RECORDS } from './config/datasets.js';
 import { renderRecordList } from './records.js';
 import { renderInfo } from './info.js';
 import * as viewer from './viewer.js';
@@ -9,18 +9,22 @@ import { announce } from './narrator.js';
 import { createPlayer } from './player.js';
 import { installShortcuts, setSingleKeyShortcuts, singleKeyShortcutsEnabled, onSingleKeyShortcutsChange } from './shortcuts.js';
 import { createShortcutsDialog } from './shortcuts-dialog.js';
-import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
+import { createLiveDescription } from './live-description.js';
 import { createSoundSettings } from './sound-settings.js';
 import { createExplore } from './explore.js';
 import { createAlarmSetting, ALARM_DEFAULT } from './alarm-setting.js';
 import * as audio from './adapters/audio.js';
 import { getPreset } from '../audio/presets/index.js';
 import { handleInPageLinks, updateStateLinks } from './page-links.js';
+import { createLayout, installTooltips, LEFT_STATES, INFO_STATES } from './layout.js';
+import { createFullView } from './fullview.js';
 
 const nowPlaying = document.getElementById('now-playing');
 const infoBody = document.getElementById('info-body');
 const recordList = document.getElementById('record-list');
 const infoPanel = document.getElementById('info');
+const sourcePill = document.getElementById('source-pill');
+const sourcePillText = document.getElementById('source-pill-text');
 
 // Wait this long after the last selection change before announcing, so
 // arrowing quickly through the list doesn't queue up a message per record.
@@ -36,40 +40,60 @@ const state = {
 let picker = null;
 let announceTimer = null;
 
-// ---------- URL hash: #record=<id>&narration=<level>[&keys=off][&alarm=off] ----------
-// Any other parameter (e.g. an old theme=…) is ignored and dropped on the next write.
+// ---------- URL hash: #record=<id>[&keys=off][&alarm=off][&left=rail][&info=wide|hidden] ----------
+// Any other parameter (e.g. narration=… from older links, or an old theme=…)
+// is ignored and dropped on the next write.
+// The layout keys (left, info) are written only when they differ from the default.
 
 function readHash() {
   const params = new URLSearchParams(location.hash.slice(1));
   const record = params.get('record');
-  const narration = params.get('narration');
   return {
     record: record && /^[\w-]+$/.test(record) ? record : null,
-    narration: isLevel(narration) ? narration : null,
     singleKeys: params.get('keys') !== 'off', // on unless the hash says off
     alarm: params.has('alarm') ? params.get('alarm') !== 'off' : ALARM_DEFAULT,
+    left: LEFT_STATES.includes(params.get('left')) ? params.get('left') : 'expanded',
+    info: INFO_STATES.includes(params.get('info')) ? params.get('info') : 'default',
   };
 }
 
 function writeHash() {
   const params = new URLSearchParams();
   if (state.current) params.set('record', state.current.id);
-  params.set('narration', narration.getLevel());
   if (!singleKeyShortcutsEnabled()) params.set('keys', 'off');
   // Only when it differs from the default (on).
   if (alarmSetting && alarmSetting.isEnabled() !== ALARM_DEFAULT) params.set('alarm', alarmSetting.isEnabled() ? 'on' : 'off');
+  if (layout.getLeft() !== 'expanded') params.set('left', layout.getLeft());
+  if (layout.getInfo() !== 'default') params.set('info', layout.getInfo());
   // replaceState: no history entry per arrow press, and no hashchange event.
   history.replaceState(null, '', `#${params}`);
   // The header nav carries the same settings to "How to listen" and back.
   updateStateLinks(params);
 }
 
-// ---------- Player, narration, shortcuts ----------
+// ---------- Layout: dataset list and "About this dataset" (layout.js) ----------
 
-const narration = createLiveNarration({
-  captionEl: document.getElementById('narration-caption'),
+const tooltips = installTooltips({ main: document.getElementById('main') });
+const layout = createLayout({
+  main: document.getElementById('main'),
+  leftBtn: document.getElementById('sidebar-toggle'),
+  infoExpandBtn: document.getElementById('info-expand'),
+  infoHideBtn: document.getElementById('info-hide'),
+  onChange: () => writeHash(),
+  onApply: () => {
+    tooltips.refresh();
+    // After this module has run (the first call comes from createLayout itself).
+    queueMicrotask(syncInfoScrollStop);
+  },
+});
+
+// ---------- Player, live description, shortcuts ----------
+
+// The "Live description" card: written text only, never spoken.
+const description = createLiveDescription({
+  textEl: document.getElementById('narration-caption'),
   getIndex: () => player.currentIndex(),
-  // The stub fallback has no alarm voice, so narration never mentions it there.
+  // The stub fallback has no alarm voice, so the description never mentions it there.
   canSoundAlarm: () => audio.canSoundAlarm(),
 });
 
@@ -77,7 +101,7 @@ const player = createPlayer({
   transportEl: document.getElementById('transport'),
   soundStatusEl: document.getElementById('sound-status'),
   videoStatusEl: document.getElementById('video-status'),
-  narration,
+  description,
   onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
   onUserSeek: (index) => explore.onFrameChange(index),
   onExplore: () => explore.focusMap(),
@@ -91,50 +115,43 @@ const explore = createExplore({
   cursorEl: document.getElementById('map-cursor'),
   readoutEl: document.getElementById('explore-readout'),
   player,
-  narration,
 });
 
-const soundSettings = createSoundSettings(document.getElementById('sound-settings'), {
-  level: DEFAULT_LEVEL,
-  onNarrationChange: (level) => setNarrationLevel(level),
-});
-const narrationControls = soundSettings.narrationControls;
+const soundSettings = createSoundSettings(document.getElementById('sound-settings'));
 
 // Climate alarm (Sound settings). Datasets whose preset has an alarm (co2).
 let alarmSetting = null;
 alarmSetting = createAlarmSetting({
   soundSettings,
   player,
-  narration,
+  description,
   // Names of the datasets whose preset has an alarm, e.g. "Carbon Dioxide".
   alarmDatasets: RECORDS.filter((r) => getPreset(r.id).alarm?.on).map((r) => r.shortTitle).join(' and ') || 'Carbon Dioxide',
   onChange: () => {
     writeHash();
-    if (state.current) renderInfo(infoBody, state.current, { alarm: alarmSetting.isEnabled() });
+    if (state.current) renderInfo(infoBody, state.current, { alarm: alarmSetting.isEnabled(), data: state.data });
   },
 });
-
-function setNarrationLevel(level, { announceIt = true } = {}) {
-  if (!isLevel(level)) return;
-  narration.setLevel(level, { announceIt });
-  narrationControls.set(level);
-  writeHash();
-}
 
 installShortcuts({
   toggle: () => player.toggle(),
   back: () => player.step(-1),
   forward: () => player.step(1),
-  cycleNarration: () => {
-    const next = LEVELS[(LEVELS.indexOf(narration.getLevel()) + 1) % LEVELS.length];
-    setNarrationLevel(next);
-  },
-  describe: () => narration.describeNow(),
   explore: () => explore.focusMap(),
   whereAmI: () => explore.whereAmI(),
   compare: () => explore.compare(),
   legend: () => soundSettings.playLegend(),
+  toggleSidebar: () => layout.toggleLeft({ fromKey: true }),
   help: () => shortcutsDialog.open(document.activeElement),
+});
+
+// ---------- Expand Earth: the stage in full view (fullview.js) ----------
+
+createFullView({
+  stage: document.getElementById('stage'),
+  button: document.getElementById('expand-btn'),
+  viewer: document.getElementById('viewer'),
+  bottom: ['frame-caption', 'explore-readout', 'transport'].map((id) => document.getElementById(id)),
 });
 
 // ---------- Keyboard shortcuts dialog ----------
@@ -147,10 +164,9 @@ document.addEventListener('click', (event) => {
   if (opener) shortcutsDialog.open(opener);
 });
 
-// Turning single-key shortcuts on or off: remember it and update the hint.
+// Turning single-key shortcuts on or off: remember it in the URL.
 onSingleKeyShortcutsChange(() => {
   writeHash();
-  player.refreshHelp();
 });
 
 // ---------- Selection ----------
@@ -180,6 +196,9 @@ async function selectRecord(id, { announceIt = true } = {}) {
 
   writeHash();
   nowPlaying.textContent = record.title;
+  const source = sourceLabel(record);
+  sourcePillText.textContent = source;
+  sourcePill.hidden = !source;
   renderInfo(infoBody, record, { alarm: alarmSetting.isEnabled() });
   infoPanel.scrollTop = 0; // wide screens: the panel scrolls on its own; start at the top
   alarmSetting.setContext(record, null);
@@ -191,6 +210,8 @@ async function selectRecord(id, { announceIt = true } = {}) {
     if (token !== state.loadToken) return; // a newer selection won
     state.data = data;
     player.setData(record, data); // loads the preset, shows frame 0, stays paused
+    // Frames and dates for the details row of the expanded panel.
+    renderInfo(infoBody, record, { alarm: alarmSetting.isEnabled(), data });
     explore.setContext(record, data);
     soundSettings.setContext(record, data);
     alarmSetting.setContext(record, data);
@@ -205,17 +226,29 @@ async function selectRecord(id, { announceIt = true } = {}) {
 }
 
 // ---------- "About this dataset": its own scroll area on wide screens ----------
-// In the 3-column layout (styles.css: min-width 1200px, min-height 600px) the
+// In the 3-column layout (styles.css: min-width 1024px, min-height 600px) the
 // panel scrolls internally, so it becomes a Tab stop that scrolls with the
 // arrow keys, Page Up / Down, Home and End. Elsewhere the page scrolls and the
-// panel needs no Tab stop. Its role and name (index.html) stay the same.
+// panel needs no Tab stop; nor does it when hidden. Its role and name
+// (index.html) stay the same. A soft fade at its bottom edge shows that there
+// is more, and goes away once scrolled to the end.
 
-const WIDE_LAYOUT = window.matchMedia('(min-width: 1200px) and (min-height: 600px)');
+const WIDE_LAYOUT = window.matchMedia('(min-width: 1024px) and (min-height: 600px)');
 
 function syncInfoScrollStop() {
-  if (WIDE_LAYOUT.matches) infoPanel.setAttribute('tabindex', '0');
+  const own = WIDE_LAYOUT.matches && ['default', 'wide'].includes(layout.effective().info);
+  if (own) infoPanel.setAttribute('tabindex', '0');
   else infoPanel.removeAttribute('tabindex');
+  syncInfoFade();
 }
+
+function syncInfoFade() {
+  const more = infoPanel.scrollHeight - infoPanel.scrollTop - infoPanel.clientHeight > 2;
+  infoPanel.classList.toggle('has-more', more);
+}
+
+infoPanel.addEventListener('scroll', syncInfoFade, { passive: true });
+new ResizeObserver(syncInfoFade).observe(infoBody);
 
 // ---------- Startup ----------
 
@@ -226,7 +259,7 @@ async function init() {
   WIDE_LAYOUT.addEventListener('change', syncInfoScrollStop);
 
   const fromHash = readHash();
-  if (fromHash.narration) setNarrationLevel(fromHash.narration, { announceIt: false });
+  layout.restore(fromHash);
   setSingleKeyShortcuts(fromHash.singleKeys);
   if (fromHash.alarm !== alarmSetting.isEnabled()) alarmSetting.setEnabled(fromHash.alarm, { announceIt: false });
 
@@ -248,7 +281,7 @@ async function init() {
 
   window.addEventListener('hashchange', () => {
     const next = readHash();
-    if (next.narration && next.narration !== narration.getLevel()) setNarrationLevel(next.narration);
+    layout.restore(next, { animate: true });
     setSingleKeyShortcuts(next.singleKeys);
     if (next.alarm !== alarmSetting.isEnabled()) alarmSetting.setEnabled(next.alarm);
     if (next.record && next.record !== state.current?.id) {

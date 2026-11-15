@@ -1,19 +1,22 @@
-// Record picker: a native radio group styled as photo cards.
+// Record picker: a native radio group styled as cards with an icon thumbnail.
 // Native radios give us the expected keyboard model for free: Tab enters and
 // leaves the group as one stop, and arrow keys move (and select) within it.
+//
+// The collapsed sidebar (data-left="rail" on <main>, see layout.js) is the SAME
+// radio group restyled: only the thumbnails show, and the text parts (class
+// rail-hide) become visually hidden, so every radio keeps its name and its
+// position ("1 of 4").
 
 import { h } from './dom.js';
+import { icon } from './icons.js';
 import { statusLabel } from './config/datasets.js';
 
 /**
- * Decorative full-bleed photo behind the card text (config → photo). An
- * absolute URL, so it doesn't depend on which file sets the style. A dark
- * scrim on top (CSS) keeps the words readable; a missing file just leaves the
- * plain card colour.
+ * Decorative thumbnail: the dataset's icon (config → icon) on a tinted tile
+ * (styles.css → .thumb[data-thumb]). The title says the same in words.
  */
-function photoStyle(photo) {
-  if (!photo) return null;
-  return { backgroundImage: `url("${new URL(photo, document.baseURI).href}")` };
+function thumb(record) {
+  return h('span', { class: 'thumb', 'data-thumb': record.id, 'aria-hidden': 'true' }, icon(record.icon ?? 'globe', 'thumb-icon'));
 }
 
 function recordItem(record) {
@@ -28,17 +31,20 @@ function recordItem(record) {
     value: record.id,
     class: 'record-input',
     'aria-labelledby': labelledBy,
-    'aria-describedby': `${base}-hint`,
+    // The short description, then how it sounds (soundHint, visually hidden).
+    'aria-describedby': record.shortDescription ? `${base}-hint ${base}-sound` : `${base}-hint`,
+    // Rail tooltip (layout.js); the radio's own name comes from the title.
+    'data-tooltip': record.shortTitle,
+    'data-tooltip-when': 'rail',
   });
 
-  const photo = photoStyle(record.photo);
   const card = h(
     'label',
-    { for: base, class: `record-card${photo ? ' has-photo' : ''}`, '--record-accent': record.accent },
-    photo && h('span', { class: 'record-photo', 'aria-hidden': 'true', style: photo }),
+    { for: base, class: 'record-card', '--record-accent': record.accent },
+    thumb(record),
     h(
       'span',
-      { class: 'record-text' },
+      { class: 'record-text rail-hide' },
       h(
         'span',
         { class: 'record-head' },
@@ -51,12 +57,14 @@ function recordItem(record) {
             status,
           ),
       ),
-      h('span', { class: 'record-hint', id: `${base}-hint` }, record.soundHint),
+      h('span', { class: 'record-hint', id: `${base}-hint` }, record.shortDescription || record.soundHint),
+      record.shortDescription && h('span', { class: 'visually-hidden', id: `${base}-sound` }, ` ${record.soundHint}`),
       // Visual state only: screen readers already hear "selected" from the
       // radio and Play / Pause from the Play button.
       h(
         'span',
         { class: 'record-state', 'aria-hidden': 'true' },
+        icon('checkCircle'),
         h('span', { class: 'state-selected' }, 'Selected'),
         h('span', { class: 'state-playing' }, 'Now playing'),
       ),
@@ -80,7 +88,7 @@ export function renderRecordList(container, records, { onSelect }) {
     h('div', { class: 'record-items' }, records.map(recordItem)),
   );
   // Plain text, not a link or control: says the list can grow.
-  const more = h('p', { class: 'records-more' }, 'More NASA datasets can be added, such as aerosols, air quality and forest height.');
+  const more = h('p', { class: 'records-more rail-hide' }, 'More NASA datasets can be added, such as aerosols, air quality and forest height.');
 
   fieldset.addEventListener('change', (event) => {
     if (event.target.name === 'record') onSelect(event.target.value);

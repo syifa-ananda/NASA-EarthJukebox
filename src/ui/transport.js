@@ -1,9 +1,11 @@
 // The one control bar under the video:
-//   main row:      Play/Pause · Timeline (+ readout) · Audio legend · Explore · Volume
-//   second row:    Playback speed · Loop · shortcut hint
-// Every control has visible text; icons are decoration only. Pure DOM: user
-// input goes out through handlers, and setters update the bar. The playback
-// logic lives in player.js.
+//   controls card, row 1: Play/Pause · Timeline (+ readout)
+//   controls card, row 2: Audio legend · Explore · Volume
+//   below the card:       Playback speed · Loop · why Play is unavailable (until ready)
+// Same controls, order and behaviour as before the redesign; only the
+// grouping into a card is new. Every control has visible text; icons are
+// decoration only. Pure DOM: user input goes out through handlers,
+// and setters update the bar. The playback logic lives in player.js.
 
 import { h } from './dom.js';
 import { icon } from './icons.js';
@@ -16,6 +18,14 @@ const SPEEDS = [
 ];
 
 export const DEFAULT_VOLUME = 70;
+
+/** Cyan filled part of a slider track (styles.css reads --fill). */
+function paintRange(input) {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 0;
+  const pct = max > min ? ((Number(input.value) - min) / (max - min)) * 100 : 0;
+  input.style.setProperty('--fill', `${pct}%`);
+}
 
 /**
  * @param {HTMLElement} container
@@ -36,7 +46,7 @@ export function createTransport(container, handlers) {
   );
 
   const scrubber = h('input', {
-    type: 'range', id: 'scrubber', min: 0, max: 0, step: 1, value: 0, disabled: true,
+    type: 'range', id: 'scrubber', class: 'range', min: 0, max: 0, step: 1, value: 0, disabled: true,
     'aria-valuetext': 'No record loaded',
   });
   const frameReadout = h('span', { class: 'readout', 'aria-hidden': 'true' }, '– / –');
@@ -57,7 +67,7 @@ export function createTransport(container, handlers) {
   );
 
   const volume = h('input', {
-    type: 'range', id: 'volume', min: 0, max: 100, step: 1, value: DEFAULT_VOLUME,
+    type: 'range', id: 'volume', class: 'range', min: 0, max: 100, step: 1, value: DEFAULT_VOLUME,
     'aria-valuetext': `Volume ${DEFAULT_VOLUME} percent`,
   });
   const volumeReadout = h('span', { class: 'readout', 'aria-hidden': 'true' }, `${DEFAULT_VOLUME}%`);
@@ -78,29 +88,44 @@ export function createTransport(container, handlers) {
       { class: 'transport', role: 'group', 'aria-label': 'Playback controls' },
       h(
         'div',
-        { class: 'transport-main' },
-        playBtn,
-        h('div', { class: 't-group t-timeline' }, h('label', { for: 'scrubber' }, 'Timeline'), scrubber, frameReadout),
-        legendBtn,
-        exploreBtn,
-        h('div', { class: 't-group t-volume' }, h('label', { for: 'volume' }, icon('speaker'), 'Volume'), volume, volumeReadout),
+        { class: 'controls-card' },
+        h(
+          'div',
+          { class: 'controls-row controls-row-1' },
+          playBtn,
+          h('div', { class: 't-group t-timeline' }, h('label', { for: 'scrubber' }, 'Timeline'), scrubber, frameReadout),
+        ),
+        h(
+          'div',
+          { class: 'controls-row controls-row-2' },
+          legendBtn,
+          exploreBtn,
+          h('div', { class: 't-group t-volume' }, h('label', { for: 'volume' }, icon('speaker'), 'Volume'), volume, volumeReadout),
+        ),
       ),
       h(
         'div',
         { class: 'transport-more' },
-        h('div', { class: 't-group' }, h('label', { for: 'speed' }, 'Playback speed'), speed),
+        h('div', { class: 't-group t-speed' }, h('label', { for: 'speed' }, 'Playback speed'), speed),
         h('label', { class: 't-check', for: 'loop' }, loop, 'Loop'),
         help,
       ),
     ),
   );
 
+  paintRange(scrubber);
+  paintRange(volume);
+
   playBtn.addEventListener('click', () => handlers.onTogglePlay());
-  scrubber.addEventListener('input', () => handlers.onSeek(Number(scrubber.value)));
+  scrubber.addEventListener('input', () => {
+    paintRange(scrubber);
+    handlers.onSeek(Number(scrubber.value));
+  });
   volume.addEventListener('input', () => {
     const v = Number(volume.value);
     volume.setAttribute('aria-valuetext', `Volume ${v} percent`);
     volumeReadout.textContent = `${v}%`;
+    paintRange(volume);
     handlers.onVolume(v);
   });
   speed.addEventListener('change', () => handlers.onSpeed(Number(speed.value)));
@@ -117,7 +142,9 @@ export function createTransport(container, handlers) {
         else btn.setAttribute('aria-describedby', 'transport-help');
       }
       scrubber.disabled = !enabled;
+      // Why the controls are unavailable (aria-describedby); hidden once ready.
       help.textContent = helpText;
+      help.hidden = !helpText;
     },
 
     setPlaying(playing) {
@@ -129,6 +156,7 @@ export function createTransport(container, handlers) {
     setRange(frameCount) {
       scrubber.max = String(Math.max(0, frameCount - 1));
       scrubber.value = '0';
+      paintRange(scrubber);
       if (!frameCount) {
         scrubber.setAttribute('aria-valuetext', 'No record loaded');
         frameReadout.textContent = '– / –';
@@ -141,6 +169,7 @@ export function createTransport(container, handlers) {
      */
     setFrame(index, frameCount, valueText, when) {
       if (scrubber.value !== String(index)) scrubber.value = String(index);
+      paintRange(scrubber);
       scrubber.setAttribute('aria-valuetext', valueText);
       frameReadout.textContent = `${index + 1} / ${frameCount}${when ? ` · ${when}` : ''}`;
     },

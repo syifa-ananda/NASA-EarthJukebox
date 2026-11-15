@@ -1,5 +1,6 @@
 // Small inline SVG icons, drawn for this project (no icon library). They are
-// always decorative: aria-hidden, never the only label of a control.
+// always decorative: aria-hidden, never the only label of a control (icon-only
+// buttons carry an aria-label).
 // Stroke icons in currentColor, so they follow the text colour and forced colours.
 
 const PATHS = {
@@ -9,6 +10,45 @@ const PATHS = {
   note: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
   cursor: '<path d="M5 3l14 7-6 2-2 6z"/><path d="m13 12 5 5"/>',
   speaker: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>',
+  // Layout.
+  chevronLeft: '<path d="m14.5 6-6 6 6 6"/>',
+  chevronRight: '<path d="m9.5 6 6 6-6 6"/>',
+  expand: '<path d="M14 4h6v6"/><path d="m20 4-6.5 6.5"/><path d="M10 20H4v-6"/><path d="m4 20 6.5-6.5"/>',
+  collapse: '<path d="M20 4l-6.5 6.5"/><path d="M14 5v5.5h5"/><path d="M4 20l6.5-6.5"/><path d="M10 19v-5.5H5"/>',
+  // States.
+  checkCircle: '<circle cx="12" cy="12" r="9"/><path d="m8 12.4 2.8 2.8L16.2 9.8"/>',
+  // "About this dataset" (expanded): section and detail icons.
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.1"/>',
+  palette:
+    '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.4-1.9l-.4-1c-.5-1.2.4-2.6 1.7-2.6H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z"/>' +
+    '<circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.2" r="1.2"/>',
+  database: '<ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"/><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4M16 3v4"/>',
+  layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+  // Dataset thumbnails (config/datasets.js → icon).
+  // Sea surface temperature: a thermometer beside two waves.
+  thermometerWaves:
+    '<path d="M6.2 4.8a1.8 1.8 0 0 1 3.6 0v8.9a3.6 3.6 0 1 1-3.6 0z"/><path d="M8 9v6.8"/>' +
+    '<path d="M13 11.5c1.3 0 1.7-1.2 3-1.2s1.7 1.2 3 1.2 1.7-1.2 3-1.2"/>' +
+    '<path d="M13 16.5c1.3 0 1.7-1.2 3-1.2s1.7 1.2 3 1.2 1.7-1.2 3-1.2"/>',
+  // Night lights: a small city skyline with lit windows, and a crescent moon.
+  cityNight:
+    '<path d="M2.5 21h19"/><path d="M4 21v-9h4v9"/><path d="M8 21V8h5v13"/><path d="M13 21v-7h4v7"/>' +
+    '<path d="M10 11h1M10 14h1M10 17h1M5.8 15h.4M14.8 17h.4"/>' +
+    '<path d="M19.6 3.2a3.3 3.3 0 1 0 2.2 5.4 2.7 2.7 0 0 1-2.2-5.4z"/>',
+  // Lightning: a bolt from a small cloud.
+  cloudBolt:
+    '<path d="M7 13.5h9.5a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.6 1.2A3 3 0 0 0 7 13.5z"/>' +
+    '<path d="M12.8 13.5 10 18h4l-2.6 4.2"/>',
+  // Carbon dioxide: a CO2 molecule (three joined atoms) under a small cloud.
+  // (Letters inside the cloud were unreadable at the 48px rail size.)
+  co2Cloud:
+    '<g transform="translate(1.8 -0.8) scale(0.85)"><path vector-effect="non-scaling-stroke" ' +
+    'd="M7 13.5h9.5a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.6 1.2A3 3 0 0 0 7 13.5z"/></g>' +
+    '<circle cx="4.8" cy="17.6" r="2.3"/><circle cx="12" cy="17.6" r="2.8"/><circle cx="19.2" cy="17.6" r="2.3"/>' +
+    '<path d="M7.1 17.6h2.1M14.8 17.6h2.1"/>',
+  // Any other dataset: a globe.
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 4 5.6 4 9s-1.4 6.6-4 9c-2.6-2.4-4-5.6-4-9s1.4-6.6 4-9z"/>',
 };
 
 /**
@@ -23,4 +63,10 @@ export function icon(name, className = '') {
     `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
     `stroke-linecap="round" stroke-linejoin="round" focusable="false">${PATHS[name] ?? ''}</svg>`;
   return span;
+}
+
+/** Swap the drawing inside an icon made by icon() (e.g. a chevron that flips). */
+export function setIcon(span, name) {
+  const svg = span?.querySelector('svg');
+  if (svg) svg.innerHTML = PATHS[name] ?? '';
 }

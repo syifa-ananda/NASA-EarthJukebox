@@ -5,7 +5,7 @@
 //           Audio follows it through the engine's syncToVideo(); the UI
 //           follows the same sync's onFrame callback (requestVideoFrameCallback
 //           with a requestAnimationFrame fallback), so timeline, captions,
-//           narration and explore always see the frame the sound is on.
+//           the live description and explore always see the frame the sound is on.
 //           Play / Pause / timeline / speed / loop control the <video>.
 //   heatmap No video, or it failed to load: our own requestAnimationFrame
 //           clock advances one frame every 1 / (fps × speed) seconds and feeds
@@ -18,13 +18,12 @@ import * as viewer from './viewer.js';
 import { mediaUrl } from './adapters/data.js';
 import { announce } from './narrator.js';
 import { createTransport, DEFAULT_VOLUME } from './transport.js';
-import { frameLabel, shortTime } from './narration.js';
-import { singleKeyShortcutsEnabled } from './shortcuts.js';
+import { frameLabel, shortTime } from './live-description.js';
 
 const PREVIEW_GAP_MS = 150; // scrub previews: at most one note per 150 ms
 
-const NO_NARRATION = {
-  setContext() {}, onPlay() {}, onStop() {}, onFrame() {}, onUserSeek() {},
+const NO_DESCRIPTION = {
+  setContext() {}, onStop() {}, onFrame() {}, onUserSeek() {},
 };
 
 const SOUND_STATUS = {
@@ -51,7 +50,7 @@ const SAMPLE_MESSAGES = {
 
 /**
  * @param {{ transportEl: HTMLElement, soundStatusEl?: HTMLElement, videoStatusEl?: HTMLElement,
- *           narration?: ReturnType<import('./narration.js').createLiveNarration>,
+ *           description?: ReturnType<import('./live-description.js').createLiveDescription>,
  *           onPlayingChange?: (playing: boolean) => void,
  *           onUserSeek?: (index: number) => void, onExplore?: () => void }} opts
  */
@@ -59,7 +58,7 @@ export function createPlayer({
   transportEl,
   soundStatusEl,
   videoStatusEl,
-  narration = NO_NARRATION,
+  description = NO_DESCRIPTION, // the "Live description" card
   onPlayingChange = () => {},
   onUserSeek = () => {}, // the user changed frame (timeline, J / L)
   onExplore = () => {}, // the "Explore" button
@@ -176,10 +175,7 @@ export function createPlayer({
     if (!s.data) return `Loading ${s.record.title}…`;
     if (!s.engineLoaded) return 'Loading the sound engine…';
     if (usingVideo() && !s.videoReady) return 'Loading the video…';
-    if (!singleKeyShortcutsEnabled()) {
-      return 'Single-key shortcuts are off. Turn them back on under Keyboard shortcuts at the top of the page.';
-    }
-    return 'Shortcuts: K play or pause, J and L step a frame, E explore the map, N narration level, D describe now, G legend. Press ? for all shortcuts.';
+    return ''; // ready: nothing to explain (the line under the controls hides)
   }
 
   function refresh() {
@@ -215,7 +211,7 @@ export function createPlayer({
     if (i === s.index) return;
     s.index = i;
     render();
-    if (s.playing && !s.suspended) narration.onFrame(i);
+    if (s.playing && !s.suspended) description.onFrame(i);
   }
 
   // ---------- heatmap clock ----------
@@ -300,7 +296,7 @@ export function createPlayer({
       if (s.suspended || v.ended) return; // hidden tab, or 'ended' handles it
       if (s.playing) {
         // Paused by something other than our button (e.g. the system).
-        narration.onStop();
+        description.onStop();
         setPlaying(false);
         render();
       }
@@ -347,7 +343,7 @@ export function createPlayer({
     }
     if (wasPlaying) {
       s.session += 1;
-      narration.onStop();
+      description.onStop();
       audio.pause();
       setPlaying(false);
     }
@@ -361,7 +357,7 @@ export function createPlayer({
   function finish() {
     s.session += 1;
     stopClock();
-    narration.onStop();
+    description.onStop();
     if (!usingVideo()) audio.pause(); // with video, syncToVideo pauses on 'ended'
     setPlaying(false);
     if (usingVideo()) s.index = last();
@@ -381,14 +377,13 @@ export function createPlayer({
     setPlaying(true);
     render();
     announce(`Playing ${s.record.title}.${sampleNote()}${playNote()}`, { force: true });
-    narration.onPlay();
 
     const fail = (err) => {
       console.error(err);
       if (session !== s.session) return;
       s.session += 1;
       stopClock();
-      narration.onStop();
+      description.onStop();
       if (usingVideo()) s.video.pause();
       setPlaying(false);
       render();
@@ -424,7 +419,7 @@ export function createPlayer({
   function pause({ silent = false } = {}) {
     s.session += 1;
     stopClock();
-    narration.onStop();
+    description.onStop();
     if (usingVideo()) s.video.pause();
     else audio.pause();
     setPlaying(false);
@@ -456,7 +451,7 @@ export function createPlayer({
     } else {
       schedulePreview();
     }
-    narration.onUserSeek(); // quiet while scrubbing, one summary when it stops
+    description.onUserSeek();
     onUserSeek(s.index);
   }
 
@@ -491,7 +486,7 @@ export function createPlayer({
     if (document.hidden) {
       if (!s.playing) return;
       s.suspended = true;
-      narration.onStop();
+      description.onStop();
       if (usingVideo()) {
         s.video.pause(); // syncToVideo pauses the audio
       } else {
@@ -507,7 +502,6 @@ export function createPlayer({
         Promise.resolve(audio.play()).catch(() => {});
         startClock();
       }
-      narration.onPlay();
     }
   }
 
@@ -529,7 +523,7 @@ export function createPlayer({
     s.error = error;
     s.index = 0;
     setVideoStatus('');
-    narration.setContext(record, null); // cancels anything pending for the old record
+    description.setContext(record, null); // idle text until the new data arrives
     transport.setRange(0);
     refresh();
   }
@@ -551,7 +545,7 @@ export function createPlayer({
       audio.load(data);
       audio.update(frame(), { frameSeconds: frameSeconds() }); // silent; primes probe()
     }
-    narration.setContext(record, data);
+    description.setContext(record, data);
     render();
     refresh();
     showSoundStatus();
@@ -571,6 +565,5 @@ export function createPlayer({
     hasData: () => !!s.data,
     clockKind: () => s.clock,
     focusPlay: () => transport.focusPlay(),
-    refreshHelp: () => refresh(),
   };
 }

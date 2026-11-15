@@ -1,4 +1,4 @@
-// Place words for the explore-mode cursor and the detailed narration.
+// Place words for the explore-mode cursor and the heatmap's text alternative.
 //
 // Two kinds of grid (config/datasets.js → gridKind):
 //

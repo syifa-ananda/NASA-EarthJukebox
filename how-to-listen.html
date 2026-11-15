@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How to listen · Earth Jukebox</title>
-  <meta name="description" content="How to use the Earth Jukebox with a keyboard, a screen reader or headphones: what you hear, how to explore the picture, and the four datasets.">
+  <meta name="description" content="How to use the Earth Jukebox in a minute: start, what you hear, exploring the picture and the keyboard shortcuts.">
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23111'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d9480f'/%3E%3Ccircle cx='16' cy='16' r='1.5' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/ui/styles.css">
@@ -13,11 +13,11 @@
   <a class="skip-link" href="#main">Skip to main content</a>
 
   <header class="site-header">
-    <div class="wrap header-inner">
+    <div class="header-inner">
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false">
-            <path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 6v12M23 11v2"/>
+          <svg viewBox="0 0 44 44" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" focusable="false">
+            <path d="M4 18v8M10 14v16M16 8v28M22 4v36M28 11v22M34 15v14M40 19v6"/>
           </svg>
         </span>
         <div class="brand-text">
@@ -33,7 +33,14 @@
           <li><a class="nav-link" href="index.html" data-keep-state>Jukebox</a></li>
           <li><a class="nav-link" href="how-to-listen.html" aria-current="page" data-keep-state>How to listen</a></li>
         </ul>
-        <button type="button" class="btn-outline" id="shortcuts-btn" data-open-shortcuts>Keyboard shortcuts</button>
+        <button type="button" class="btn-header" id="shortcuts-btn" data-open-shortcuts>
+          <span class="icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+              <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>
+            </svg>
+          </span>
+          Keyboard shortcuts
+        </button>
       </nav>
     </div>
   </header>
@@ -41,98 +48,51 @@
   <main id="main" class="wrap help" tabindex="-1">
     <div class="help-intro">
       <h1>How to listen</h1>
-      <p>The Earth Jukebox plays NASA pictures of our planet as music. This page explains how to start,
-        what the sounds mean and how to explore a picture by ear, with a keyboard, a screen reader or a mouse.</p>
       <p><a class="back-link" href="index.html" data-keep-state><span aria-hidden="true">←</span> Back to the jukebox</a></p>
     </div>
 
+    <!-- Four short cards, 2 × 2 (one column on phones). Reading order = Tab order. -->
     <div class="help-grid">
-      <section class="panel help-card" aria-labelledby="help-what">
-        <h2 id="help-what">What this is</h2>
-        <p>The Earth Information Jukebox turns NASA pictures of our planet into music you can listen to and explore.
-          It is built for blind and low-vision listeners, and for everyone else.</p>
-        <p>Each dataset is a short NASA video. The music is made live from the picture, frame by frame, so what you hear
-          always matches what is on screen.</p>
-      </section>
-
       <section class="panel help-card" aria-labelledby="help-start">
-        <h2 id="help-start">How to start</h2>
-        <ol>
-          <li>Choose a dataset from the list.</li>
-          <li>Press Play (or <kbd>K</kbd>). Sound only starts after you press it.</li>
-          <li>The first time you play Sea Surface Temperature, its recorded violin and cello take a moment to load,
-            usually under a second and at most about 8 seconds. The picture starts at once and the music joins
-            when they are ready. If they can't load, synthesised strings play instead.</li>
-        </ol>
-        <p>Headphones help: sounds move between your left and right ear, so you can hear where things happen.</p>
+        <h2 id="help-start">Start</h2>
+        <ul>
+          <li>Pick a dataset.</li>
+          <li>Press Play (or <kbd>K</kbd>).</li>
+          <li>Headphones help: sounds move left and right.</li>
+        </ul>
       </section>
 
       <section class="panel help-card" aria-labelledby="help-hear">
         <h2 id="help-hear">What you hear</h2>
         <ul>
-          <li><strong>Pitch:</strong> higher notes mean more of what the dataset measures, such as more city light or more lightning.
-            In the sea temperature dataset the melody follows the seasons.</li>
-          <li><strong>Loudness and brightness</strong> of the sound follow how bright or busy the picture is.</li>
-          <li><strong>Left or right</strong> tells you where on the picture things are happening.</li>
-          <li><strong>The instruments</strong> are different for each dataset: see The four datasets.</li>
-          <li><strong>A soft wordless voice</strong> in the carbon dioxide dataset marks the moments when the most carbon dioxide is in view.
-            This is the climate alarm. Under Sound settings you can switch it off, or press Hear the alarm for a short example.</li>
+          <li>Higher notes = more: warmer water, brighter lights, more lightning, more CO₂ in view.</li>
+          <li>Left or right = where on the map.</li>
+          <li>Audio legend (<kbd>G</kbd>) plays the scale.</li>
         </ul>
-        <p>To hear the scale first, press <strong>Audio legend</strong> (or <kbd>G</kbd>): it plays the notes from the lowest to the highest value
-          and says what each sound means.</p>
       </section>
 
       <section class="panel help-card" aria-labelledby="help-explore">
-        <h2 id="help-explore">Explore the picture</h2>
-        <p>Press <kbd>E</kbd> or the Explore button, then use the arrow keys to move a sound cursor over the picture.
-          Each step plays the value under the cursor and says where you are.
-          <kbd>W</kbd> repeats where you are, <kbd>C</kbd> compares the spot with the average, and <kbd>Escape</kbd> takes you back to Play.
-          A soft tick means there is no data in that spot.</p>
-        <p>You can also point at the picture with a mouse or a finger.</p>
-        <p class="help-note">VoiceOver: turn Quick Nav off first (press Left arrow and Right arrow together), so the arrow keys reach the sound map.</p>
-      </section>
-
-      <section class="panel help-card" aria-labelledby="help-narration">
-        <h2 id="help-narration">Narration</h2>
-        <p>Under Sound settings, choose Off, Brief or Detailed (or press <kbd>N</kbd>). While a dataset plays, your screen reader
-          (such as VoiceOver, NVDA or JAWS) reads a short description every few seconds when something changes.
-          The same words appear under the video for sighted listeners.</p>
-        <p>Press <kbd>D</kbd> at any time for a detailed description of the moment you are on.</p>
-      </section>
-
-      <section class="panel help-card" aria-labelledby="help-datasets">
-        <h2 id="help-datasets">The four datasets</h2>
+        <h2 id="help-explore">Explore</h2>
         <ul>
-          <li><strong>Sea surface temperature:</strong> one year of ocean currents and water temperature, March 2007 to March 2008.
-            Slow strings (a recorded violin and cello) and a soft wordless choir follow the seasons, with a few harp notes on top.
-            It shows the seasons and the currents, not a climate trend.</li>
-          <li><strong>Night lights:</strong> city lights from 2012 to 2023. Bamboo angklung and harp notes, over a wooden marimba bass,
-            fill in as the lights grow, and a low angklung chord marks each new year.
-            We re-paced NASA's video to one year every 2.5 seconds so the music can follow.</li>
-          <li><strong>Lightning from the space station:</strong> about 2017 to 2023, with no exact dates.
-            Each storm burst is a hand-drum stroke, heard where it happens, over a soft wordless choir.
-            The station can't see beyond about 52 degrees north or south.</li>
-          <li><strong>Carbon dioxide:</strong> a tour around a turning globe, January to March 2020.
-            A low overtone drone and a slow drum heartbeat follow the part of the globe facing you; the heartbeat quickens
-            when more carbon dioxide is in view. Values are relative: the colour scale has no units.</li>
+          <li>Press <kbd>E</kbd> or Explore, then move with the arrow keys.</li>
+          <li><kbd>W</kbd> = where am I, <kbd>C</kbd> = compare, <kbd>Esc</kbd> = back.</li>
         </ul>
       </section>
 
       <section class="panel help-card" aria-labelledby="help-more">
-        <h2 id="help-more">Shortcuts and credits</h2>
-        <p><button type="button" class="link-button" data-open-shortcuts>Show all keyboard shortcuts</button> (or press <kbd>?</kbd>).
-          Single-key shortcuts can be switched off in that list.</p>
-        <p>Data and visualizations: <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>.</p>
-        <p>Recorded violin, cello and piano: VSCO 2 Community Edition, public domain (CC0).</p>
-        <p>Photos on the dataset cards: credited in <a href="src/ui/img/cards/CREDITS.md">the card photo credits</a>.</p>
+        <h2 id="help-more">More</h2>
+        <ul>
+          <li>The Live description under the video says what you hear in words.</li>
+          <li>Press <kbd>?</kbd> or <button type="button" class="link-button" data-open-shortcuts>Keyboard shortcuts</button> for all keys.</li>
+          <li><kbd>B</kbd> hides the dataset list.</li>
+        </ul>
       </section>
     </div>
   </main>
 
+  <!-- Same footer on both pages (styles.css → .site-footer). -->
   <footer class="site-footer">
-    <div class="wrap">
-      <p>Visualizations by <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>, shown at the NASA Earth Information Center. Built for the NASA Space Apps Challenge 2026.</p>
-    </div>
+    <p>Data and visualizations: <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>, shown at the NASA Earth Information Center<span class="visually-hidden">.</span> <span class="footer-sep" aria-hidden="true">·</span> Recorded instruments: VSCO 2 Community Edition (CC0)<span class="visually-hidden">.</span> <span class="footer-sep" aria-hidden="true">·</span> Built for the NASA Space Apps Challenge 2026</p>
   </footer>
 
   <!-- Keyboard shortcuts dialog, filled by src/ui/shortcuts-dialog.js (same as the jukebox). -->

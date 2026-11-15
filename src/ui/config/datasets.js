@@ -12,12 +12,13 @@
 //   id           folder / manifest id
 //   shortTitle   compact title for the record card
 //   title        fallback full title (index.json's title wins)
-//   soundHint    one line on how it sounds
+//   shortDescription  one line of UI copy under the card title
+//   soundHint    one line on how it sounds (read with the card, visually hidden)
 //   accent       decorative tint for the record card's background gradient.
 //                It is never used for text and never carries meaning alone.
-//   photo        decorative full-bleed card photo (CSS background, never read
-//                out), relative to index.html. Credits: src/ui/img/cards/CREDITS.md.
-//                null = the plain card colour.
+//   icon         decorative card thumbnail: the name of an icon drawn in
+//                src/ui/icons.js (aria-hidden, never read out). The tile colours
+//                are in styles.css → .thumb[data-thumb="<id>"]. Default: 'globe'.
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                fallback and the legend bar; null if the colour key is unknown
 //   summary      { subject, high, preposition? } wording for "where is it highest"
@@ -31,7 +32,7 @@
 //                so coastal cells can be named "Coast near …" (see regions.js)
 //   aspect       width / height of the video (docs/sources.md); used until the
 //                video's own size is known, and for the heatmap fallback
-//   time         what a frame means in time, for the timeline and narration.
+//   time         what a frame means in time, for the timeline and captions.
 //                Taken from docs/sources.md; frames are spread evenly between
 //                start and end. null = no dates (lightning has none on purpose).
 //                  { kind: 'yearBlocks', startYear, framesPerYear }
@@ -39,7 +40,7 @@
 //   valueUnit    optional { scale, unit, round }: grid value × scale = a real
 //                quantity (sst: value = °C / 32, docs/data-contract.md §4)
 //   quiet        optional { field, frames, text }: when `field` is 0 for this
-//                many frames in a row, narration says `text` once and waits
+//                many frames in a row, the Live description shows `text`
 //   emptyLabel   optional: what an empty grid cell (value 0) means, for explore.
 //                Wins over the engine's probe label when set.
 //   emptyWaterLabel  optional, world maps only: what an empty cell means where
@@ -58,9 +59,10 @@
 export const RECORDS = [
   {
     id: 'sst',
-    photo: 'src/ui/img/cards/sst.jpg',
+    icon: 'thermometerWaves',
     shortTitle: 'Sea Surface Temperature',
     title: 'Global Sea Surface Currents and Temperature',
+    shortDescription: 'Ocean surface warmth through the seasons.',
     soundHint: 'Slow strings and a wordless choir that follow the seasons',
     accent: '#d9480f',
     legend: {
@@ -103,9 +105,10 @@ export const RECORDS = [
   },
   {
     id: 'nightlights',
-    photo: 'src/ui/img/cards/nightlights.jpg',
+    icon: 'cityNight',
     shortTitle: 'Night Lights',
     title: 'Change in Night Lights 2012–2023',
+    shortDescription: 'City lights across the globe.',
     soundHint: 'Bamboo angklung and harp that fill in as cities grow',
     accent: '#a87a00',
     legend: {
@@ -131,9 +134,10 @@ export const RECORDS = [
   },
   {
     id: 'lightning',
-    photo: 'src/ui/img/cards/lightning.jpg',
+    icon: 'cloudBolt',
     shortTitle: 'Lightning from the ISS',
     title: 'Lightning Events Detected from the ISS 2017–2023',
+    shortDescription: 'Every lightning burst from space.',
     soundHint: 'A hand-drum stroke for every storm burst',
     accent: '#3b7dd8',
     legend: {
@@ -164,9 +168,10 @@ export const RECORDS = [
   },
   {
     id: 'co2',
-    photo: 'src/ui/img/cards/co2.jpg',
+    icon: 'co2Cloud',
     shortTitle: 'Carbon Dioxide',
     title: 'DYAMOND Global Carbon Dioxide',
+    shortDescription: 'Atmospheric CO₂ around the world.',
     soundHint: 'An overtone drone and drum heartbeat that follow the turning globe',
     accent: '#b14fc5',
     legend: {
@@ -220,9 +225,10 @@ export function mergeRecords(indexEntries = []) {
       colorMeaning: entry.colorMeaning ?? '',
       source: entry.source ?? '',
       credit: entry.credit ?? 'NASA/SVS',
+      shortDescription: cfg.shortDescription ?? '',
       soundHint: cfg.soundHint,
       accent: cfg.accent ?? DEFAULT_ACCENT,
-      photo: cfg.photo ?? null,
+      icon: cfg.icon ?? 'globe',
       legend: cfg.legend ?? null,
       summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
       gridKind: cfg.gridKind ?? 'world-map',
@@ -252,9 +258,10 @@ export function mergeRecords(indexEntries = []) {
       colorMeaning: entry.colorMeaning ?? '',
       source: entry.source ?? '',
       credit: entry.credit ?? 'NASA/SVS',
+      shortDescription: '',
       soundHint: 'NASA data, played as music',
       accent: DEFAULT_ACCENT,
-      photo: null,
+      icon: 'globe',
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
       // Unknown new datasets: describe positions in the picture, never guess places.
@@ -283,4 +290,17 @@ export function mergeRecords(indexEntries = []) {
  */
 export function statusLabel(record) {
   return record.mock ? 'Mock data' : '';
+}
+
+/**
+ * Short label for the source pill on the picture ("NASA SVS"), from the
+ * record's real source link; '' when the source is not a known host.
+ */
+export function sourceLabel(record) {
+  try {
+    if (new URL(record.source).hostname === 'svs.gsfc.nasa.gov') return 'NASA SVS';
+  } catch {
+    // No or invalid source link: no pill.
+  }
+  return '';
 }

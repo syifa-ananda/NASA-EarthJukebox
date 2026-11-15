@@ -1,45 +1,66 @@
 /* Earth Jukebox styles.
  *
- * One look: the dark reference design, whatever the system setting
- * (color-scheme: dark also makes native selects, sliders, checkboxes and
- * scrollbars dark). Every colour comes from the tokens below and is checked
- * for WCAG AA: text >= 4.5:1, UI boundaries and the focus ring >= 3:1.
- * Glows and animations are switched off under prefers-reduced-motion, and
- * forced-colors (Windows High Contrast) drops images, glows and gradients.
+ * One dark look, whatever the system setting (color-scheme: dark also makes
+ * native menus and scrollbars dark). Every colour comes from the tokens below
+ * and is checked for WCAG AA: text >= 4.5:1 (large text >= 3:1), control
+ * boundaries and the focus ring >= 3:1. Animations and glows are switched off
+ * under prefers-reduced-motion; forced-colors (Windows High Contrast) drops
+ * images, glows and gradients and uses system colours.
+ *
+ * Layout states (attributes on <main>, set by src/ui/layout.js, which also
+ * applies the width rules):
+ *   data-left="expanded" | "rail"
+ *   data-info="default" | "wide" | "hidden" | "stacked"
+ * Full view of the player's stage: .stage.is-fullview (src/ui/fullview.js).
  */
 
-/* ---------- Tokens (dark, the reference look) ---------- */
+/* ---------- Tokens ---------- */
 
 :root {
   color-scheme: dark;
-  --bg: #061226;
-  --bg-glow: rgba(79, 216, 240, 0.08);
-  --surface: #0b1a33;
-  --surface-2: #12264a;
-  --card: #0e2142;
-  --line: #1f3a63; /* decorative separators only */
-  --text: #eaf2ff;
-  --text-muted: #a9bcda;
-  --accent: #4fd8f0;
-  --accent-strong: #9be9f7;
-  --glow: rgba(79, 216, 240, 0.4);
-  --border: #5f7fa8; /* control boundaries, >= 3:1 */
-  --focus: #ffd166;
-  --on-focus: #000000; /* skip link text on the focus colour */
-  --btn-text: #04121f;
-  --badge-mock: #ffd98a;
-  --danger: #ff9b9b;
 
-  --video-bg: #02060d;
-  --strip-bg: #050c18;
-  --strip-text: #e6f2ff;
-  --frame-border: #29476f;
+  /* Foundation */
+  --space-black: #050d1a; /* page */
+  --deep-navy: #08172a; /* header, tooltips */
+  --midnight: #0d2138; /* panels */
+  --slate: #152c46; /* buttons, secondary surfaces */
+  --raised: #1a3550; /* hover, floating */
+  --border: #29455f; /* decorative lines and panel edges */
+  --control-border: #6b87a3; /* boundaries of inputs: >= 3:1 on every surface */
 
-  --radius: 16px;
-  --radius-sm: 10px;
-  --gap: 1.25rem;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Accents */
+  --cyan: #38dce8; /* primary, selected, focus */
+  --teal: #21b7ae;
+  --blue: #4285f4;
+  --purple: #8f7be8; /* explore / audio accents */
+  --amber: #f2ad55;
+  --mint: #55d6a1;
+  --coral: #f47770;
+
+  /* Text */
+  --text-heading: #f2f6fc;
+  --text-body: #d9e4f0;
+  --text-secondary: #a8b9cc;
+  --text-muted: #8499af;
+  --text-disabled: #647a92;
+  --on-cyan: #061826;
+
+  /* Shape */
+  --radius-panel: 16px;
+  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --outline-light: rgba(242, 246, 252, 0.45); /* outlined pill buttons */
+
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Column widths (layout states below). */
+  --left-w: clamp(280px, 22vw, 340px);
+  --thumb: clamp(64px, 5.2vw, 88px);
+  --right-w: clamp(300px, 25vw, 420px);
+  --picture-max-h: 72vh; /* the picture is never taller than this */
 }
 
 /* ---------- Base ---------- */
@@ -54,49 +75,56 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Both pages: a column at least as tall as the window, so the footer sits at
+   the bottom of the window even when the content is short. */
 body {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(1100px 520px at 75% -10%, var(--bg-glow), transparent 70%),
-    var(--bg);
-  color: var(--text);
+  min-height: 100dvh;
+  background: var(--space-black);
+  color: var(--text-body);
   font-family: var(--font);
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 h1,
 h2,
-h3 {
-  line-height: 1.25;
+h3,
+h4 {
   margin: 0 0 0.5em;
+  color: var(--text-heading);
+  line-height: 1.25;
 }
 
 a {
-  color: var(--accent);
+  color: var(--cyan);
 }
 
 a:hover {
-  color: var(--accent-strong);
+  color: var(--text-heading);
 }
 
-/* ---------- Focus: always visible, amber/orange so it never looks like the
-   cyan "selected" glow ---------- */
+p {
+  margin: 0 0 0.75em;
+}
+
+/* ---------- Focus: always visible, the same ring everywhere ---------- */
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--cyan);
   outline-offset: 3px;
-  border-radius: 6px;
 }
 
-/* Sections that receive focus from the skip links: always show where focus
-   landed, whatever input was used. */
-#records:focus,
-#player:focus,
-.help:focus {
-  outline: 3px dashed var(--focus);
-  outline-offset: 6px;
+/* Sections that receive focus from the skip links (tabindex="-1"): show where
+   keyboard focus landed. Never after a mouse click or on page load. */
+#records:focus-visible,
+#player:focus-visible,
+.help:focus-visible {
+  outline: 2px dashed var(--cyan);
+  outline-offset: 3px;
 }
 
 /* ---------- Utilities ---------- */
@@ -114,17 +142,17 @@ a:hover {
 }
 
 .muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .wrap {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 20px;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 /* ---------- Skip link ---------- */
@@ -135,10 +163,10 @@ a:hover {
   top: -100px;
   z-index: 100;
   padding: 0.75rem 1rem;
-  background: var(--focus);
-  color: var(--on-focus);
+  background: var(--cyan);
+  color: var(--on-cyan);
   font-weight: 700;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   text-decoration: none;
 }
 
@@ -149,8 +177,9 @@ a:hover {
 /* ---------- Header ---------- */
 
 .site-header {
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--line);
+  flex: none;
+  background: var(--deep-navy);
+  border-bottom: 1px solid var(--border);
 }
 
 .header-inner {
@@ -158,97 +187,228 @@ a:hover {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem 1.5rem;
+  gap: 12px 24px;
+  min-height: 96px;
+  padding: 12px 40px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 14px;
 }
 
 .brand-icon {
   display: inline-flex;
-  color: var(--accent);
-  filter: drop-shadow(0 0 6px var(--glow));
+  color: var(--cyan);
+}
+
+.brand-text {
+  display: grid;
+  gap: 2px;
 }
 
 .site-title {
   margin: 0;
-  line-height: 1.25; /* same on both pages (an h1 here, a p on how-to-listen.html) */
-  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
+  font-size: 34px;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--text-heading);
 }
 
 .tagline {
   margin: 0;
-  color: var(--text-muted);
+  font-size: 18px;
+  color: var(--text-secondary);
 }
 
 .site-nav {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
+  gap: 8px 40px;
 }
 
 .nav-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
+  gap: 4px 40px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .nav-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-heading);
   text-decoration: none;
-  /* Room for the current-page bar, so the text doesn't move. */
-  border-bottom: 3px solid transparent;
 }
 
 .nav-link:hover {
+  color: var(--text-heading);
   text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
-/* The page you are on: plain text colour plus a thick bar (not colour alone). */
+/* The page you are on: a thick bar under the text (not colour alone). */
 .nav-link[aria-current="page"] {
-  color: var(--text);
-  border-bottom-color: var(--accent);
+  font-weight: 600;
 }
 
+.nav-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--cyan);
+  border-radius: 2px;
+}
+
+.nav-link[aria-current="page"]:hover {
+  text-decoration: none;
+}
+
+.btn-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-heading);
+  background: transparent;
+  border: 1px solid rgba(242, 246, 252, 0.55);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.btn-header:hover {
+  background: var(--raised);
+}
 
 /* ---------- Form controls (shared) ---------- */
 
 select {
-  min-height: 44px;
-  padding: 0.25rem 0.6rem;
+  appearance: none;
+  min-height: 48px;
+  padding: 0 44px 0 16px;
   font: inherit;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-input[type="range"] {
-  min-height: 44px;
-  margin: 0;
-  accent-color: var(--accent);
+  font-size: 16px;
+  color: var(--text-heading);
+  background: var(--midnight) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d9e4f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center / 18px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
-input[type="range"]:disabled {
+select:hover {
+  background-color: var(--raised);
+}
+
+/* Sliders: 6px track, the played / set part in cyan (--fill from transport.js),
+   a light 20px thumb with a cyan ring. 44px tall to hit. */
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(to right, var(--cyan) 0 var(--fill, 0%), #3a5571 var(--fill, 0%) 100%);
+}
+
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--text-heading);
+  border: 0;
+  box-shadow: 0 0 0 3px rgba(56, 220, 232, 0.55);
+}
+
+.range::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: #3a5571;
+}
+
+.range::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--cyan);
+}
+
+.range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-heading);
+  border: 0;
+  box-shadow: 0 0 0 3px rgba(56, 220, 232, 0.55);
+}
+
+.range:disabled {
   cursor: not-allowed;
 }
 
-input[type="checkbox"],
+.range:disabled::-webkit-slider-runnable-track {
+  background: #3a5571;
+}
+
+.range:disabled::-webkit-slider-thumb {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+.range:disabled::-moz-range-thumb {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+/* Checkboxes: a 22px box, cyan with a dark tick when checked. */
+input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  background: var(--midnight) no-repeat center / 16px;
+  border: 1.5px solid var(--control-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:checked {
+  background-color: var(--cyan);
+  border-color: var(--cyan);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23061826' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+
+input[type="checkbox"][aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 input[type="radio"] {
-  accent-color: var(--accent);
+  accent-color: var(--cyan);
 }
 
 /* ---------- Buttons ---------- */
@@ -257,65 +417,84 @@ input[type="radio"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  min-width: 7.5rem;
-  min-height: 48px;
-  padding: 0.5rem 1.4rem;
+  gap: 10px;
+  flex: none;
+  min-width: 132px;
+  min-height: 52px;
+  padding: 0 26px;
   font: inherit;
-  font-weight: 700;
-  color: var(--btn-text);
-  background: var(--accent);
-  border: 2px solid var(--accent);
-  border-radius: 999px;
-  box-shadow: 0 0 18px var(--glow);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--on-cyan);
+  background: var(--cyan);
+  border: 2px solid var(--cyan);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 6px 18px rgba(56, 220, 232, 0.22);
   cursor: pointer;
 }
 
 .btn-play:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: #7ce8f0;
+  border-color: #7ce8f0;
 }
 
-.btn-secondary,
-.btn-outline {
+/* Outlined pill buttons (Audio legend, Explore, Settings, Hear the alarm). */
+.btn-secondary {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  min-height: 44px;
-  padding: 0.4rem 1rem;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 20px;
   font: inherit;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-heading);
   background: transparent;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
+  border: 1px solid var(--outline-light);
+  border-radius: var(--radius-pill);
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.btn-outline {
-  border-color: var(--accent);
-}
-
-.btn-secondary:hover,
-.btn-outline:hover {
-  border-color: var(--accent);
-  background: var(--surface-2);
+.btn-secondary:hover {
+  background: var(--raised);
 }
 
 .btn-play[aria-disabled="true"],
-.btn-secondary[aria-disabled="true"] {
-  color: var(--text-muted);
+.btn-secondary[aria-disabled="true"],
+.overlay-btn[aria-disabled="true"] {
+  color: var(--text-secondary);
   background: transparent;
-  border-color: var(--border);
+  border-color: var(--control-border);
   border-style: dashed;
   box-shadow: none;
   cursor: not-allowed;
 }
 
+/* Square icon buttons (sidebar toggle, rail gear). Named by aria-label. */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--text-heading);
+  background: transparent;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--raised);
+}
+
 .link-button {
   padding: 0;
   font: inherit;
-  color: var(--accent);
+  color: var(--cyan);
   text-decoration: underline;
   background: none;
   border: 0;
@@ -323,14 +502,14 @@ input[type="radio"] {
 }
 
 .link-button:hover {
-  color: var(--accent-strong);
+  color: var(--text-heading);
 }
 
 .icon-svg {
   display: inline-flex;
   flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 20px;
+  height: 20px;
 }
 
 .icon-svg svg {
@@ -349,69 +528,120 @@ input[type="radio"] {
   width: 0;
   height: 0;
   border-style: solid;
-  border-width: 0.5rem 0 0.5rem 0.8rem;
+  border-width: 9px 0 9px 14px;
   border-color: transparent transparent transparent currentColor;
 }
 
 .icon-pause {
-  width: 0.8rem;
-  height: 1rem;
-  border-left: 0.28rem solid currentColor;
-  border-right: 0.28rem solid currentColor;
+  width: 14px;
+  height: 18px;
+  border-left: 5px solid currentColor;
+  border-right: 5px solid currentColor;
 }
 
 kbd {
   display: inline-block;
   min-width: 1.6em;
-  padding: 0 0.35em;
+  padding: 0 0.4em;
   font-family: var(--mono);
   font-size: 0.85em;
-  line-height: 1.5;
+  line-height: 1.6;
   text-align: center;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  color: var(--text-heading);
+  background: var(--slate);
+  border: 1px solid var(--control-border);
+  border-radius: 5px;
 }
 
-/* ---------- Layout: 3 columns wide, 2 on tablets, 1 on phones ----------
-   DOM order = tab order = reading order. The grid only places panels. */
+/* ---------- Layout ----------
+   DOM order = Tab order = reading order; the grid only places panels.
+   < 720px:     one column (records, player, info).
+   720–1023px:  dataset list + player, info below at full width.
+   >= 1024px:   three columns; the layout state sets the column widths. */
 
 .layout {
   display: grid;
-  gap: var(--gap);
-  padding-top: var(--gap);
+  gap: 20px;
+  padding: 20px 16px;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    "records"
-    "player"
-    "info";
 }
 
-@media (min-width: 760px) {
+.panel {
+  position: relative;
+  min-width: 0;
+  padding: 24px;
+  background: var(--midnight);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+@media (min-width: 720px) {
   .layout {
-    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-    grid-template-areas:
-      "records player"
-      "info    info";
+    grid-template-columns: var(--left-w) minmax(0, 1fr);
     align-items: start;
+    padding: 24px 20px;
+    transition: grid-template-columns 220ms ease;
+  }
+
+  .layout[data-left="rail"] {
+    --left-w: 72px;
+  }
+
+  /* 720–1023px: "About this dataset" under the player, full width. */
+  .layout[data-info="stacked"] .info {
+    grid-column: 1 / -1;
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1024px) {
   .layout {
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(280px, 340px);
-    grid-template-areas:
-      "records player info";
+    grid-template-columns: var(--left-w) minmax(0, 1fr) var(--right-w);
+    padding: 32px 20px 16px;
+  }
+
+  .layout[data-info="wide"] {
+    --right-w: clamp(460px, 38vw, 640px);
+  }
+
+  .layout[data-info="hidden"] {
+    --right-w: 56px;
   }
 }
 
-/* Wide screens (3 columns): the page itself doesn't scroll. Header on top,
-   the three columns fill the rest of the window, and each column scrolls on
-   its own when its content is taller (About this dataset nearly always; the
-   player on windows under about 1100 px tall). Short windows and zoomed-in
-   pages (narrower than 1200 CSS px) keep normal page scrolling. */
-@media (min-width: 1200px) and (min-height: 600px) {
+/* 1024–1279px: the expanded info panel stays at 460px (layout.js shows the
+   dataset list as a rail meanwhile). */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .layout[data-info="wide"] {
+    --right-w: 460px;
+  }
+}
+
+/* No layout animation on the first paint (state restored from the URL) or
+   when the window crosses a breakpoint. */
+.layout.no-anim {
+  transition: none;
+}
+
+/* Wide screens: the page itself doesn't scroll. Header on top, the three
+   panels fill the rest of the window at the same height, and each scrolls on
+   its own when its content is taller. Short windows and zoomed-in pages keep
+   normal page scrolling. */
+@media (min-width: 1024px) and (min-height: 600px) {
   .page-jukebox {
     display: flex;
     flex-direction: column;
@@ -420,78 +650,41 @@ kbd {
     min-height: 0;
   }
 
-  .page-jukebox .site-header,
-  .page-jukebox .site-footer {
-    flex: none;
-  }
-
   .page-jukebox .layout {
     flex: 1 1 auto;
-    width: 100%;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
-    padding-bottom: 0.75rem;
   }
 
-  .page-jukebox .records,
-  .page-jukebox .player,
-  .page-jukebox .info {
-    /* Positioned, so visually-hidden text (position: absolute) stays inside
-       the scroll box instead of stretching the page. */
-    position: relative;
+  .page-jukebox .panel {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-gutter: stable;
   }
 
-  /* Rows keep their content height inside the fixed-height scroll box (the
-     video box has overflow: hidden, so without this its row could shrink and
-     the controls would slide under the picture). Padding leaves room for
-     focus rings. */
-  .page-jukebox .player {
-    grid-auto-rows: max-content;
-    align-content: start;
-    margin-inline: -8px;
-    padding: 4px 8px 12px;
-  }
-
-  .page-jukebox .site-footer {
-    margin-top: 0;
-    padding: 0.35rem 0 0.6rem;
-    font-size: 0.8rem;
-  }
-
-  .page-jukebox .site-footer p {
-    margin: 0;
+  .page-jukebox .records {
+    padding: 20px;
   }
 }
 
 /* The scrollable "About this dataset" panel (wide screens): a focus stop with
    a visible ring, so it can be scrolled with the arrow keys. */
 .info:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--cyan);
   outline-offset: 3px;
 }
 
-.records { grid-area: records; }
-.player  { grid-area: player; }
-.info    { grid-area: info; }
+/* ---------- Dataset list (a native radio group) ---------- */
 
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 1.1rem;
-  min-width: 0;
+.records {
+  display: flex;
+  flex-direction: column;
 }
 
-.panel h2 {
-  font-size: 1.15rem;
+.records-head {
+  min-height: 44px;
 }
-
-/* ---------- Dataset cards (a native radio group) ---------- */
 
 .record-list {
   margin: 0;
@@ -502,13 +695,13 @@ kbd {
 
 .record-items {
   display: grid;
-  gap: 0.8rem;
+  gap: 16px;
 }
 
 .records-more {
-  margin: 0.9rem 0 0;
+  margin: 16px 0 0;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 13px;
 }
 
 .record {
@@ -529,92 +722,84 @@ kbd {
 }
 
 .record-card {
-  position: relative;
   display: grid;
-  align-items: end;
-  min-height: 6.5rem;
-  padding: 0.85rem 1rem;
-  overflow: hidden;
-  isolation: isolate;
+  grid-template-columns: var(--thumb) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  background: rgba(21, 44, 70, 0.4);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  /* Shown when there is no photo (or it hasn't loaded). */
-  background: linear-gradient(100deg, var(--card) 40%, color-mix(in srgb, var(--record-accent) 22%, var(--card)) 100%);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  border-radius: var(--radius-card);
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-/* Decorative full-bleed photo (src/ui/img/cards/<id>.jpg), with a dark scrim
-   on top. The scrim alone keeps every word on the card >= 4.5:1 even where
-   the photo is pure white: at its lightest (top edge) it leaves at most 38 %
-   of the photo showing through (worst case measured: 5.4:1). Checked by rendering the cards over an
-   all-white test photo and measuring the lightest pixel behind each word. */
-.record-photo {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-color: var(--card);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  pointer-events: none;
+.record-input:hover + .record-card {
+  background: var(--raised);
 }
 
-.record-photo::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(4, 11, 26, 0.86) 0%,
-    rgba(4, 11, 26, 0.72) 50%,
-    rgba(4, 11, 26, 0.62) 100%
-  );
+.record-input:checked + .record-card {
+  padding: 13px; /* the border is 1px thicker */
+  background: rgba(56, 220, 232, 0.06);
+  border: 2px solid var(--cyan);
+  box-shadow: 0 0 0 1px rgba(56, 220, 232, 0.35), 0 0 22px rgba(56, 220, 232, 0.22);
+}
+
+.record-input:focus-visible + .record-card {
+  outline: 2px solid var(--cyan);
+  outline-offset: 4px;
+}
+
+/* Focused AND selected: a dark gap between the cyan border and the cyan
+   focus ring, so the two never merge. */
+.record-input:checked:focus-visible + .record-card {
+  box-shadow: 0 0 0 4px var(--space-black);
 }
 
 .record-text {
-  position: relative;
   display: grid;
-  gap: 0.2rem;
+  gap: 4px;
   min-width: 0;
-  /* Not counted for contrast (the scrim does that); it only softens busy photos. */
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
 }
 
 .record-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 0.5rem;
+  gap: 4px 8px;
 }
 
 .record-title {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
   line-height: 1.3;
+  color: var(--text-heading);
 }
 
-/* Full-strength text colour: muted grey would need a darker scrim over bright photos. */
 .record-hint {
-  color: var(--text);
-  font-size: 0.85rem;
+  font-size: 15px;
   line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 /* "Selected" / "Now playing": visible text, so the state never depends on
-   the glow or colour alone. */
+   the border or glow alone. aria-hidden: the radio already says it. */
 .record-state {
   display: none;
+  align-items: center;
+  gap: 6px;
   width: fit-content;
-  margin-top: 0.3rem;
-  padding: 0 0.55rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent);
-  /* Its own solid background, so it reads the same over any photo. */
-  background: var(--bg);
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  text-shadow: none;
+  margin-top: 6px;
+  padding: 2px 12px 2px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius-pill);
+}
+
+.record-state .icon-svg {
+  width: 16px;
+  height: 16px;
 }
 
 .state-playing {
@@ -633,90 +818,232 @@ kbd {
   display: inline;
 }
 
-.record-input:hover + .record-card {
-  border-color: var(--accent);
-}
-
-.record-input:checked + .record-card {
-  border: 2px solid var(--accent);
-  padding: calc(0.85rem - 1px) calc(1rem - 1px);
-  box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--glow);
-}
-
-.record-input:focus-visible + .record-card {
-  outline: 3px solid var(--focus);
-  outline-offset: 3px;
-}
-
 .record-badge {
   display: inline-block;
-  padding: 0 0.45rem;
+  padding: 0 8px;
   border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
 }
 
 .badge-mock {
-  color: var(--badge-mock);
-  background: var(--bg);
-  text-shadow: none;
+  color: var(--amber);
 }
 
-/* ---------- Player: video frame ---------- */
+/* Thumbnails. Decorative (aria-hidden): the dataset's icon (icons.js) on a
+   tinted tile. The tint is only a hint, never the only cue (the title says
+   it). Each icon colour is >= 5:1 on both ends of its tile gradient. */
+.thumb {
+  display: grid;
+  place-items: center;
+  width: var(--thumb);
+  aspect-ratio: 1;
+  color: var(--text-secondary); /* the icon (any other dataset: a globe) */
+  background: linear-gradient(160deg, var(--slate), var(--raised));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+}
 
-/* The sound map comes after the control bar in the DOM (Tab: control bar →
-   sound map → sound settings) but sits on top of the video: same grid row. */
+.thumb-icon {
+  width: 45%;
+  height: 45%;
+}
+
+.thumb[data-thumb="sst"] {
+  color: #7fe3ff;
+  background: linear-gradient(160deg, #0f3a66, #12597a);
+}
+
+.thumb[data-thumb="nightlights"] {
+  color: #f2c46b;
+  background: linear-gradient(160deg, #0b1630, #1b2a4a);
+}
+
+.thumb[data-thumb="lightning"] {
+  color: #e6dcff;
+  background: linear-gradient(160deg, #241a52, #3a2a7a);
+}
+
+.thumb[data-thumb="co2"] {
+  color: #ffb36b;
+  background: linear-gradient(160deg, #3a2a14, #5a3a1a);
+}
+
+/* ---------- Collapsed dataset list: the icon rail ----------
+   The same radios: only the thumbnails show. Text parts (.rail-hide) are
+   visually hidden with the same rules as .visually-hidden, so each radio
+   keeps its name, description and "1 of 4". */
+@media (min-width: 720px) {
+  .layout[data-left="rail"] .rail-hide {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .layout[data-left="rail"] .records {
+    align-items: center;
+    padding: 12px 0;
+    overflow-x: hidden;
+  }
+
+  .layout[data-left="rail"] .records-head {
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .layout[data-left="rail"] .sidebar-toggle {
+    color: var(--cyan);
+    border-color: var(--cyan);
+  }
+
+  .layout[data-left="rail"] .record-items {
+    gap: 24px;
+    justify-items: center;
+  }
+
+  .layout[data-left="rail"] .record {
+    width: 48px;
+  }
+
+  .layout[data-left="rail"] .record-card,
+  .layout[data-left="rail"] .record-input:checked + .record-card {
+    display: block;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-control);
+    box-shadow: none;
+  }
+
+  .layout[data-left="rail"] .thumb {
+    width: 48px;
+    border-radius: var(--radius-control);
+  }
+
+  .layout[data-left="rail"] .record-input:hover + .record-card .thumb {
+    border-color: var(--text-secondary);
+  }
+
+  .layout[data-left="rail"] .record-input:checked + .record-card .thumb {
+    border: 2px solid var(--cyan);
+    box-shadow: 0 0 0 1px rgba(56, 220, 232, 0.35), 0 0 16px rgba(56, 220, 232, 0.35);
+  }
+
+  .layout[data-left="rail"] .record-input:checked:focus-visible + .record-card {
+    box-shadow: 0 0 0 4px var(--space-black);
+  }
+}
+
+@media (max-width: 719.98px) {
+  .sidebar-toggle {
+    display: none;
+  }
+}
+
+/* ---------- Tooltips (layout.js) ---------- */
+
+.tooltip {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  font-size: 14px;
+  color: var(--text-heading);
+  white-space: nowrap;
+  background: var(--deep-navy);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.tooltip::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--deep-navy);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* Near the window's right edge the tooltip sits left of its button. */
+.tooltip.is-left::before {
+  left: auto;
+  right: -6px;
+  transform: translateY(-50%) rotate(-135deg);
+}
+
+/* ---------- Player ---------- */
+
+/* Same order as always: heading, stage, Live description, Sound settings, status. */
 .player {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 16px;
 }
-
-.player > * { grid-column: 1; }
-.player > .player-heading { grid-row: 1; }
-.player > .video-strip { grid-row: 2; }
-.player > .viewer,
-.player > .sound-map { grid-row: 3; }
-.player > .frame-caption { grid-row: 4; }
-.player > .explore-readout { grid-row: 5; }
-.player > #transport { grid-row: 6; }
-.player > .narration-card { grid-row: 7; }
-.player > #sound-settings { grid-row: 8; }
-.player > .engine-status { grid-row: 9; }
 
 .player-heading {
-  margin: 0 0 0.6rem;
-  font-size: 1.15rem;
-}
-
-.now-playing {
-  color: var(--text-muted);
-}
-
-/* Strip above the picture with the credit chip: never on top of the data. */
-.video-strip {
   margin: 0;
-  padding: 0.45rem 0.75rem;
-  background: var(--strip-bg);
-  border: 1px solid var(--frame-border);
-  border-bottom: 0;
-  border-radius: var(--radius) var(--radius) 0 0;
+  font-size: clamp(22px, 2.1vw, 30px);
+  font-weight: 400;
+  line-height: 1.2;
 }
 
-.video-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.05rem 0.65rem;
-  color: var(--strip-text);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
+.player-heading .label {
+  font-weight: 700;
+}
+
+/* The stage: picture (with its overlays and the sound map in one grid cell),
+   frame caption, explore readout and controls. "Expand Earth" shows it in
+   full view. A size container, so its rows wrap neatly when narrow. */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  container-type: inline-size;
+}
+
+.stage > * { grid-column: 1; }
+.stage > .viewer,
+.stage > .viewer-overlay,
+.stage > .sound-map { grid-row: 1; }
+.stage > .frame-caption { grid-row: 2; }
+.stage > .explore-readout { grid-row: 3; }
+.stage > #transport { grid-row: 4; }
+
+/* The picture fills the stage's width (aspect kept). Only a generous height
+   cap: then it is narrower and centred, with its overlays and sound map.
+   cqw = the stage's width (it is the size container). The sound map takes the
+   viewer's measured box minus the insets explore.js gives it as margins
+   (viewer.js sets the variables), so it covers exactly the picture. */
+.viewer,
+.viewer-overlay,
+.sound-map {
+  --picture-w: min(100cqw, calc(var(--picture-max-h) * var(--viewer-aspect, 2)));
+  justify-self: center;
+  align-self: start;
+  width: var(--picture-w);
+}
+
+.sound-map {
+  width: calc(var(--picture-w) - var(--picture-inset-x, 2px));
+  height: calc(var(--viewer-box-h, 0px) - var(--picture-inset-y, 2px));
 }
 
 .viewer {
@@ -725,11 +1052,55 @@ kbd {
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: var(--video-bg);
-  border: 1px solid var(--frame-border);
-  border-top: 0;
-  border-radius: 0 0 var(--radius) var(--radius);
-  box-shadow: 0 10px 40px var(--glow);
+  background: #000000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+
+/* On the picture: the credit chip (top left) and Expand Earth (top right).
+   Above the sound map; only the button takes clicks. */
+.viewer-overlay {
+  position: relative;
+  z-index: 4;
+  align-self: start;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.source-pill,
+.overlay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-heading);
+  background: rgba(5, 13, 26, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-pill);
+}
+
+.overlay-btn {
+  min-height: 40px;
+  margin-left: auto;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.overlay-btn:hover {
+  background: var(--raised);
 }
 
 /* The real video. object-fit keeps its shape; the viewer box takes the
@@ -740,12 +1111,7 @@ kbd {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: var(--video-bg);
-}
-
-.video[hidden],
-.heatmap[hidden] {
-  display: none;
+  background: #000000;
 }
 
 .heatmap {
@@ -760,40 +1126,88 @@ kbd {
   position: relative;
   z-index: 1;
   margin: 0;
-  padding: 1rem;
+  padding: 16px;
   max-width: 36em;
-  color: #e6e9f2;
+  color: var(--text-body);
   text-align: center;
 }
 
 .viewer-status.is-notice {
-  color: #ffe08a;
+  color: var(--amber);
 }
 
 .viewer-status.is-error {
-  color: #ffb4b4;
+  color: var(--coral);
 }
 
-.frame-caption[hidden],
-.viewer-status[hidden] {
-  display: none;
-}
-
+/* Under the picture: frame and date, then the explore readout. */
 .frame-caption {
-  margin: 0.45rem 0.25rem 0;
-  font-size: 0.875rem;
+  margin: 10px 16px 0;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .explore-readout {
-  margin: 0.15rem 0.25rem 0;
-  font-size: 0.875rem;
+  margin: 4px 16px 0;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
+  color: var(--text-body);
 }
 
 .explore-readout.is-idle {
-  color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+/* ---------- Full view ("Expand Earth", fullview.js) ----------
+   Black, the picture as large as the screen allows (aspect kept, centred),
+   captions and controls under it on a dark background, always in view.
+   Same rules for the Fullscreen API and the in-page fallback. */
+
+.stage.is-fullview {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 16px 24px;
+  overflow: auto;
+  align-content: center;
+  row-gap: 0;
+  background: #000000;
+  --picture-max-h: max(160px, calc(100dvh - var(--fullview-bottom, 260px)));
+}
+
+.stage.is-fullview .viewer {
+  border-color: #000000;
+  border-radius: 0;
+}
+
+.stage.is-fullview .sound-map {
+  border-radius: 0;
+}
+
+.stage.is-fullview .controls-card {
+  background: var(--deep-navy);
+}
+
+.stage.is-fullview #transport {
+  width: min(100%, 1100px);
+  justify-self: center;
+}
+
+.stage.is-fullview .frame-caption,
+.stage.is-fullview .explore-readout {
+  justify-self: center;
+  width: min(100% - 32px, 1100px - 32px);
+}
+
+/* In-page fallback: nothing behind it scrolls. */
+.has-fullview,
+.has-fullview body {
+  overflow: hidden;
 }
 
 /* ---------- Sound map (explore mode) ---------- */
@@ -801,17 +1215,13 @@ kbd {
 .sound-map {
   position: relative;
   z-index: 2;
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: var(--radius-panel);
   cursor: crosshair;
   touch-action: none; /* a finger drag explores instead of scrolling */
 }
 
-.sound-map[hidden] {
-  display: none;
-}
-
 .sound-map:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--purple);
   outline-offset: 3px;
 }
 
@@ -829,10 +1239,6 @@ kbd {
   transition: left 0.08s linear, top 0.08s linear;
 }
 
-.map-cursor[hidden] {
-  display: none;
-}
-
 /* Over the video's own label (co2 date): thin outline only. */
 .map-cursor.is-thin {
   border-width: 1px;
@@ -840,151 +1246,184 @@ kbd {
   box-shadow: none;
 }
 
-/* ---------- Control bar ---------- */
+/* ---------- Controls ---------- */
 
 .transport {
   display: grid;
-  gap: 0.55rem;
-  margin-top: 0.9rem;
+  gap: 16px;
+  margin-top: 16px;
 }
 
-.transport-main {
+.controls-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  background: rgba(21, 44, 70, 0.35);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+
+.controls-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem 0.9rem;
-  padding: 0.7rem 0.9rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  gap: 12px 20px;
 }
 
-.transport-more {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 1.25rem;
-  padding: 0 0.3rem;
+.controls-row-2 {
+  gap: 12px 16px;
 }
 
 .t-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 12px;
   min-width: 0;
 }
 
 .t-group label {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 8px;
+  font-size: 17px;
   font-weight: 600;
+  color: var(--text-heading);
+  white-space: nowrap;
 }
 
-/* Play + Timeline fill the first row; Audio legend, Explore and Volume wrap
-   to the next (same order as the DOM and the Tab order). */
 .t-timeline {
-  flex: 1 1 calc(100% - 10rem);
+  flex: 1 1 260px;
 }
 
-.t-timeline .readout {
-  flex: none;
-}
-
-/* Phones: the timeline gets its own row, and a long date readout
-   ("1 / 78 · ~14 Jan 2020") may drop below the slider instead of pushing
-   the row wider than the screen. */
-@media (max-width: 520px) {
-  .t-timeline {
-    flex-basis: 100%;
-    flex-wrap: wrap;
-  }
-}
-
-.t-timeline input[type="range"] {
+.t-timeline .range {
   flex: 1 1 auto;
-  min-width: 6rem;
 }
 
-#volume {
-  width: 6.5rem;
+.t-volume {
+  flex: 1 1 220px;
+}
+
+.t-volume .range {
+  flex: 1 1 auto;
+  max-width: 180px;
 }
 
 .readout {
+  flex: none;
   min-width: 4.5ch;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
   white-space: nowrap;
+}
+
+/* Below the card: speed, loop, and why Play is unavailable (until ready). */
+.transport-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 0 4px;
 }
 
 .t-check {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 10px;
   min-height: 44px;
+  font-size: 17px;
   font-weight: 600;
+  color: var(--text-heading);
   cursor: pointer;
-}
-
-.t-check input {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin: 0;
 }
 
 .transport-help {
   flex-basis: 100%;
   margin: 0;
+  font-size: 13px;
   color: var(--text-muted);
-  font-size: 0.875rem;
 }
 
-/* ---------- Live narration card ---------- */
+/* Small picture: smaller overlay pills, so they cover less of the data. */
+@container (max-width: 480px) {
+  .viewer-overlay {
+    padding: 8px;
+  }
+
+  .source-pill,
+  .overlay-btn {
+    min-height: 32px;
+    padding: 3px 10px;
+    font-size: 13px;
+  }
+
+  .overlay-btn .icon-svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Narrow player (expanded info panel, tablets, phones): rows wrap neatly. */
+@container (max-width: 560px) {
+  .controls-card {
+    padding: 16px;
+  }
+
+  .t-timeline {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+
+  .t-timeline .range {
+    min-width: 140px;
+  }
+}
+
+/* ---------- Live description card (written text only) ---------- */
 
 .narration-card {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.9rem;
+  gap: 14px;
   align-items: start;
-  margin-top: 0.9rem;
-  padding: 1rem 1.1rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: 16px 18px;
+  background: rgba(21, 44, 70, 0.35);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
 }
 
 .narration-icon {
   display: inline-flex;
-  margin-top: 0.15rem;
-  color: var(--accent);
+  margin-top: 2px;
+  color: var(--cyan);
 }
 
 .narration-icon svg {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 28px;
+  height: 28px;
 }
 
 .card-label {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 14px;
   font-weight: 600;
+  color: var(--text-secondary);
 }
 
 /* Reserves two lines so the controls below don't jump when the text changes. */
 .narration-caption {
   min-height: 2.9em;
-  margin: 0.15rem 0 0.35rem;
-  font-size: 1.1rem;
+  margin: 2px 0 6px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.45;
+  color: var(--text-heading);
 }
 
 .narration-caption.is-idle {
-  color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 15px;
   font-weight: 400;
+  color: var(--text-secondary);
 }
 
 .narration-caption.is-fresh {
@@ -998,151 +1437,174 @@ kbd {
 
 .card-hint {
   margin: 0;
+  font-size: 13px;
   color: var(--text-muted);
-  font-size: 0.8rem;
 }
 
 /* ---------- Sound settings ---------- */
 
 .sound-settings {
-  margin-top: 0.9rem;
-  padding: 0.9rem 1.1rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: 16px 18px;
+  background: rgba(21, 44, 70, 0.35);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
 }
 
 .sound-settings h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
-}
-
-.narration-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 1rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-/* A legend inside a flex fieldset sits on its own line; float keeps it
-   inline with the options. */
-.narration-controls legend {
-  float: left;
-  margin-right: 0.75rem;
-  padding: 0;
+  margin: 0 0 4px;
+  font-size: 17px;
   font-weight: 600;
-  line-height: 44px;
-}
-
-.narration-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 1rem;
-}
-
-.narration-option label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 44px;
-  cursor: pointer;
-}
-
-.narration-option input {
-  width: 1.2rem;
-  height: 1.2rem;
-  margin: 0;
 }
 
 .setting-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 0.75rem;
-  margin-top: 0.4rem;
+  gap: 8px 16px;
+  margin-top: 6px;
 }
 
 .setting-help {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* Switches added with addSwitch() (climate alarm): checkbox + button, help below. */
 .setting-switch {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .setting-switch .setting-row {
   margin-top: 0;
 }
 
+/* The first switch sits right under the heading: no separator line. */
+.setting-switches > .setting-switch:first-child {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.setting-switch .t-check {
+  font-size: 16px;
+}
+
+.setting-switch .btn-secondary {
+  min-height: 44px;
+  font-size: 15px;
+}
+
 .setting-switch-help {
-  margin-top: 0.15rem;
+  margin-top: 4px;
 }
 
 .legend-text {
-  margin: 0.5rem 0 0;
-  padding: 0.4rem 0.7rem;
-  border-left: 4px solid var(--accent);
-  background: var(--surface-2);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-size: 0.9rem;
-}
-
-.legend-text[hidden] {
-  display: none;
+  margin: 8px 0 0;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: var(--text-body);
+  background: var(--slate);
+  border-left: 3px solid var(--cyan);
+  border-radius: 0 8px 8px 0;
 }
 
 /* ---------- Status line ---------- */
 
 .engine-status {
-  margin: 0.6rem 0.3rem 0;
+  margin: 12px 4px 0;
+  font-size: 13px;
   color: var(--text-muted);
-  font-size: 0.85rem;
 }
 
 .video-status {
   display: block;
 }
 
-.video-status[hidden] {
+/* ---------- Info panel (About this dataset) ----------
+   default  narrow column: the original content, sections divided by lines.
+   wide     (and "stacked" under the player): the same content laid out as
+            three sections with icons, plus the details row and band swatches
+            (.info-extra, hidden in the narrow column).
+   hidden   a 56px rail with one "Show dataset information" button. */
+
+.info-head {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Expand → "Collapse": the same button as a pill with visible text. */
+.icon-btn.is-pill {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  gap: 8px;
+  padding: 0 16px 0 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+}
+
+.layout[data-info="stacked"] .info-actions {
   display: none;
 }
 
-/* ---------- Info panel (About this dataset) ---------- */
+.info-body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.info-body p {
+  margin: 0 0 10px;
+}
+
+.info-section + .info-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
 
 .info-title {
-  font-size: 1.05rem;
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
 }
 
-.info h4 {
-  margin: 1.1rem 0 0.35rem;
-  font-size: 0.95rem;
+.info-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 600;
 }
 
-.info p {
-  margin: 0 0 0.6rem;
+.info-section-icon,
+.info-extra {
+  display: none;
 }
 
 .legend-bar {
-  height: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  height: 16px;
+  border-radius: var(--radius-pill);
 }
 
 .legend-ends {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  margin: 0.25rem 0 0.5rem;
-  font-size: 0.875rem;
+  gap: 16px;
+  margin: 6px 0 10px;
+  font-size: 14px;
+  color: var(--text-body);
 }
 
 .legend-ends span:last-child {
@@ -1150,41 +1612,211 @@ kbd {
 }
 
 .sound-list {
-  margin: 0 0 0.5rem;
-  padding-left: 1.1rem;
+  margin: 0 0 10px;
+  padding-left: 18px;
 }
 
 .sound-list li {
-  margin-bottom: 0.4rem;
+  margin-bottom: 6px;
+}
+
+/* Expanded layout (wide, or under the player). */
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-extra {
+  display: block;
+}
+
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-section-icon {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  color: var(--text-secondary);
+}
+
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-section-title {
+  font-size: 22px;
+}
+
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-title {
+  font-size: 18px;
+}
+
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-section > :not(.info-section-title, .info-kicker) {
+  margin-left: 36px; /* text lines up under the heading, past the icon */
+}
+
+/* Details row: up to three cells divided by vertical lines; 2 × 2 when narrow. */
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-details {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 10px;
+  margin: 14px 0 4px 36px;
+}
+
+.info-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  align-items: center;
+  padding: 4px 14px;
+  border-left: 1px solid var(--border);
+}
+
+.info-detail:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.info-detail-icon {
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+  color: var(--text-secondary);
+}
+
+.info-detail dt {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.info-detail dd {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+/* Temperature bands (sst): a colour box (not a photo) + name + range. */
+.layout:is([data-info="wide"], [data-info="stacked"]) .info-bands {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 12px 0 0 36px;
+  padding: 0;
+  list-style: none;
+}
+
+.info-band {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-swatch {
+  flex: none;
+  width: 48px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+}
+
+.info-band-text {
+  display: grid;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.info-band-name {
+  color: var(--text-body);
+}
+
+.info-band-range {
+  color: var(--text-secondary);
+}
+
+/* Soft fade at the bottom while there is more to scroll (main.js sets
+   has-more). Sticky, so it stays at the visible bottom edge; it hides once
+   the end is reached, so it never covers the last line. */
+.info-fade {
+  display: none;
+}
+
+@media (min-width: 1024px) and (min-height: 600px) {
+  .info.has-more .info-fade {
+    display: block;
+    position: sticky;
+    bottom: -24px;
+    height: 56px;
+    margin: -56px -24px -24px;
+    background: linear-gradient(to bottom, rgba(13, 33, 56, 0), var(--midnight) 85%);
+    pointer-events: none;
+  }
+}
+
+/* Hidden: a 56px rail with the Show button only. */
+@media (min-width: 1024px) {
+  .layout[data-info="hidden"] .info {
+    padding: 12px 0;
+    overflow: hidden;
+  }
+
+  .layout[data-info="hidden"] .info-head {
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .layout[data-info="hidden"] .info-head h2 {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .layout[data-info="hidden"] .info-body,
+  .layout[data-info="hidden"] .info-fade {
+    display: none;
+  }
 }
 
 /* ---------- How to listen page (how-to-listen.html) ----------
-   One card per topic: 1 column on phones, 2 on tablets, 3 on wide screens.
-   DOM order = reading order; the grid fills row by row. */
+   Four short cards: 2 × 2, one column on phones. DOM order = reading order;
+   the grid fills row by row. */
 
 .help {
-  padding-top: calc(var(--gap) + 0.25rem);
+  max-width: 1000px;
+  padding-top: 32px;
+  padding-bottom: 32px;
+  font-size: 16px;
 }
 
 .help-intro {
-  max-width: 46rem;
-  margin-bottom: var(--gap);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
+  margin-bottom: 20px;
 }
 
 .help-intro h1 {
-  margin: 0 0 0.4rem;
-  font-size: clamp(1.6rem, 1.3rem + 1vw, 2.1rem);
+  margin: 0;
+  font-size: clamp(26px, 1.4rem + 1vw, 34px);
 }
 
 .help-intro p {
-  margin: 0 0 0.6rem;
-  font-size: 1.05rem;
+  margin: 0;
 }
 
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 6px;
   min-height: 44px;
   font-weight: 600;
 }
@@ -1192,10 +1824,7 @@ kbd {
 .help-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--gap);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 20px;
 }
 
 @media (min-width: 700px) {
@@ -1204,40 +1833,19 @@ kbd {
   }
 }
 
-@media (min-width: 1100px) {
-  .help-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 .help-card h2 {
-  margin: 0 0 0.6rem;
-  font-size: 1.15rem;
-  color: var(--accent-strong);
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 600;
 }
 
-.help-card p,
-.help-card ul,
-.help-card ol {
-  margin: 0 0 0.6rem;
+.help-card ul {
+  margin: 0;
+  padding-left: 20px;
 }
 
-.help-card > :last-child {
-  margin-bottom: 0;
-}
-
-.help-card ul,
-.help-card ol {
-  padding-left: 1.2rem;
-}
-
-.help-card li {
-  margin-bottom: 0.4rem;
-}
-
-.help-note {
-  color: var(--text-muted);
-  font-size: 0.9rem;
+.help-card li + li {
+  margin-top: 6px;
 }
 
 /* ---------- Keyboard shortcuts dialog ---------- */
@@ -1246,10 +1854,12 @@ kbd {
   width: min(42rem, calc(100% - 2rem));
   max-height: min(48rem, calc(100vh - 2rem));
   padding: 0;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  font-size: 15px;
+  color: var(--text-body);
+  background: var(--midnight);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
 }
 
 .sc-dialog[open] {
@@ -1258,93 +1868,154 @@ kbd {
 }
 
 .sc-dialog::backdrop {
-  background: rgba(2, 6, 14, 0.7);
+  background: rgba(5, 13, 26, 0.75);
+}
+
+.sc-dialog .btn-secondary {
+  min-height: 44px;
 }
 
 .sc-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1rem 0.5rem;
+  gap: 16px;
+  padding: 18px 20px 8px;
 }
 
 .sc-head h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .sc-setting {
-  padding: 0 1rem 0.5rem;
-  border-bottom: 1px solid var(--line);
+  padding: 0 20px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .sc-body {
-  padding: 0.5rem 1rem 1rem;
+  padding: 8px 20px 20px;
   overflow: auto;
 }
 
 .sc-intro {
-  margin: 0.25rem 0 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  margin: 4px 0 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 .sc-group h3 {
-  margin: 1rem 0 0.35rem;
-  font-size: 1rem;
+  margin: 16px 0 6px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .sc-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
 }
 
 .sc-table th,
 .sc-table td {
-  padding: 0.35rem 0.5rem;
+  padding: 6px 8px;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .sc-table thead th {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .sc-table tbody th {
   width: 40%;
   font-weight: 600;
+  color: var(--text-heading);
 }
 
 .sc-mac {
   display: block;
-  margin-top: 0.15rem;
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  margin-top: 2px;
+  font-size: 13px;
   font-weight: 400;
-}
-
-.sc-tip {
-  margin: 0.75rem 0 0;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface-2);
-  border-left: 4px solid var(--accent);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
 /* ---------- Footer ---------- */
 
+/* The page's main content takes the space between header and footer. */
+body > main {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+/* The header, mirrored: full width, same side padding as .header-inner, so
+   the text lines up with the logo. Last row under the panels on the wide
+   jukebox; end of the page elsewhere. */
 .site-footer {
-  margin-top: 2rem;
-  padding: 1rem 0 2rem;
-  border-top: 1px solid var(--line);
+  flex: none;
+  padding: 14px 40px;
+  font-size: 13px;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  background: var(--deep-navy);
+  border-top: 1px solid var(--border);
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer a {
+  color: var(--cyan);
+}
+
+.site-footer a:hover {
+  color: var(--text-heading);
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 719.98px) {
+  .header-inner {
+    padding: 12px 16px;
+  }
+
+  .site-footer {
+    padding: 14px 16px;
+  }
+
+  .site-title {
+    font-size: 28px;
+  }
+
+  .tagline {
+    font-size: 16px;
+  }
+
+  .site-nav,
+  .nav-list {
+    gap: 4px 24px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  :root {
+    --thumb: 64px;
+  }
+
+  .record-card {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .record-input:checked + .record-card {
+    padding: 11px;
+  }
 }
 
 /* ---------- Reduced motion: no animations, transitions or glows ---------- */
@@ -1362,6 +2033,10 @@ kbd {
     transition-duration: 0.01ms !important;
   }
 
+  .layout {
+    transition: none;
+  }
+
   .narration-caption.is-fresh {
     animation: none;
   }
@@ -1370,17 +2045,13 @@ kbd {
     transition: none;
   }
 
-  .brand-icon {
-    filter: none;
-  }
-
-  .btn-play,
-  .viewer {
+  .btn-play {
     box-shadow: none;
   }
 
-  .record-input:checked + .record-card {
-    box-shadow: 0 0 0 1px var(--accent);
+  .record-input:checked + .record-card,
+  .layout[data-left="rail"] .record-input:checked + .record-card .thumb {
+    box-shadow: none;
   }
 }
 
@@ -1388,45 +2059,65 @@ kbd {
 
 @media (forced-colors: active) {
   :focus-visible,
-  #records:focus,
-  #player:focus,
-  .help:focus {
+  #records:focus-visible,
+  #player:focus-visible,
+  .help:focus-visible,
+  .record-input:focus-visible + .record-card {
     outline-color: Highlight;
   }
 
   .panel,
   .record-card,
-  .transport-main,
+  .controls-card,
+  .viewer,
+  .thumb,
+  .tooltip,
   .narration-card,
   .sound-settings,
-  .video-strip,
-  .viewer {
+  .source-pill,
+  .overlay-btn {
     border-color: CanvasText;
   }
 
-  .record-photo {
-    display: none;
-  }
-
-  .record-card {
+  .thumb {
+    color: CanvasText;
     background: Canvas;
   }
 
-  .record-text {
-    text-shadow: none;
+  /* Native controls back, in system colours. */
+  select,
+  input[type="checkbox"],
+  .range {
+    appearance: auto;
+    background-image: none;
   }
 
-  .record-input:checked + .record-card {
+  .record-input:checked + .record-card,
+  .layout[data-left="rail"] .record-input:checked + .record-card .thumb {
+    border-color: Highlight;
     outline: 3px solid Highlight;
     outline-offset: 2px;
   }
 
-  .nav-link[aria-current="page"] {
-    border-bottom-color: CanvasText;
+  .record-state,
+  .nav-link[aria-current="page"]::after {
+    border-color: CanvasText;
+    background: CanvasText;
   }
 
-  .help-card {
-    border-color: CanvasText;
+  .record-state {
+    background: Canvas;
+  }
+
+  /* Play / pause glyphs are drawn with borders: keep the transparent sides. */
+  .icon-play,
+  .icon-pause {
+    forced-color-adjust: none;
+    color: ButtonText;
+  }
+
+  .info-swatch {
+    forced-color-adjust: none; /* the band colours are the content */
   }
 
   .map-cursor {
@@ -1434,7 +2125,11 @@ kbd {
     outline-color: Highlight;
   }
 
-  .brand-icon {
-    filter: none;
+  .site-footer {
+    border-top-color: CanvasText;
+  }
+
+  .site-footer a {
+    color: LinkText;
   }
 }
