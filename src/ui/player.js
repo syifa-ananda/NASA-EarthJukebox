@@ -19,6 +19,7 @@ import { mediaUrl } from './adapters/data.js';
 import { announce } from './narrator.js';
 import { createTransport, DEFAULT_VOLUME } from './transport.js';
 import { frameLabel, shortTime } from './narration.js';
+import { singleKeyShortcutsEnabled } from './shortcuts.js';
 
 const PREVIEW_GAP_MS = 150; // scrub previews: at most one note per 150 ms
 
@@ -114,12 +115,14 @@ export function createPlayer({
 
   function helpText() {
     if (!s.record) return 'Choose a record to enable Play.';
-    if (!s.record.playable) return `${s.record.title} is coming soon, so it can't play yet.`;
     if (s.error) return `${s.record.title} could not load.`;
     if (!s.data) return `Loading ${s.record.title}…`;
     if (!s.engineLoaded) return 'Loading the sound engine…';
     if (usingVideo() && !s.videoReady) return 'Loading the video…';
-    return 'Shortcuts: K play or pause, J and L step a frame, E explore the map, N narration level, D describe now, G legend.';
+    if (!singleKeyShortcutsEnabled()) {
+      return 'Single-key shortcuts are off. Turn them back on under Keyboard shortcuts at the top of the page.';
+    }
+    return 'Shortcuts: K play or pause, J and L step a frame, E explore the map, N narration level, D describe now, G legend. Press ? for all shortcuts.';
   }
 
   function refresh() {
@@ -510,5 +513,6 @@ export function createPlayer({
     hasData: () => !!s.data,
     clockKind: () => s.clock,
     focusPlay: () => transport.focusPlay(),
+    refreshHelp: () => refresh(),
   };
 }

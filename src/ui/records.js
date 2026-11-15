@@ -3,7 +3,7 @@
 // leaves the group as one stop, and arrow keys move (and select) within it.
 
 import { h } from './dom.js';
-import { statusLabel, statusKind } from './config/datasets.js';
+import { statusLabel } from './config/datasets.js';
 
 function recordItem(record) {
   const base = `record-${record.id}`;
@@ -22,7 +22,7 @@ function recordItem(record) {
 
   const card = h(
     'label',
-    { for: base, class: `record-card${record.playable ? '' : ' is-soon'}`, '--record-accent': record.accent },
+    { for: base, class: 'record-card', '--record-accent': record.accent },
     h('span', { class: 'record-disc', 'aria-hidden': 'true' }),
     h(
       'span',
@@ -34,7 +34,7 @@ function recordItem(record) {
         status &&
           h(
             'span',
-            { class: `record-badge badge-${statusKind(record)}`, id: `${base}-badge` },
+            { class: 'record-badge badge-mock', id: `${base}-badge` },
             h('span', { class: 'visually-hidden' }, ', '),
             status,
           ),
@@ -59,12 +59,14 @@ export function renderRecordList(container, records, { onSelect }) {
     h('legend', {}, 'Choose a record'),
     h('div', { class: 'record-items' }, records.map(recordItem)),
   );
+  // Plain text, not a link or control: says the list can grow.
+  const more = h('p', { class: 'records-more' }, 'More NASA datasets can be added, such as aerosols, air quality and forest height.');
 
   fieldset.addEventListener('change', (event) => {
     if (event.target.name === 'record') onSelect(event.target.value);
   });
 
-  container.replaceChildren(fieldset);
+  container.replaceChildren(fieldset, more);
 
   return {
     check(id) {

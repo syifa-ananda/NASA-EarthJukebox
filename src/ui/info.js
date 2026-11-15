@@ -3,7 +3,7 @@
 
 import { h } from './dom.js';
 import { cssGradient } from './color.js';
-import { statusLabel, statusKind } from './config/datasets.js';
+import { statusLabel } from './config/datasets.js';
 // Plain JS, no Tone.js: works even when the audio engine falls back to the stub.
 import { getPreset } from '../audio/presets/index.js';
 
@@ -21,17 +21,17 @@ function legendBlock(record) {
     );
   }
   parts.push(
-    h('p', { class: 'legend-meaning' }, record.colorMeaning ? `In the picture: ${record.colorMeaning}.` : 'Colour key coming soon.'),
+    h('p', { class: 'legend-meaning' }, record.colorMeaning ? `In the picture: ${record.colorMeaning}.` : 'No colour key was given for this dataset.'),
   );
   return h('div', { class: 'legend' }, parts);
 }
 
 function soundList(record) {
-  // Playable records: Person 2's own description of the preset comes first.
-  // Unknown ids get the engine's default preset, which is what actually plays.
-  const description = record.playable ? getPreset(record.id).soundDescription : '';
+  // Person 2's own description of the preset comes first. Unknown ids get the
+  // engine's default preset, which is what actually plays.
+  const description = getPreset(record.id).soundDescription ?? '';
   if (!record.sounds.length) {
-    return h('p', {}, description || 'Sound design coming soon.');
+    return h('p', {}, description || 'This dataset plays with the general sound preset.');
   }
   return [
     description && h('p', { class: 'sound-description' }, description),
@@ -56,7 +56,6 @@ function soundList(record) {
         ),
       ),
     ),
-    !record.playable && h('p', { class: 'muted small' }, 'Planned mapping. The final sounds may change.'),
   ];
 }
 
@@ -71,7 +70,7 @@ function sourceBlock(record) {
       {},
       valid
         ? h('a', { href: url }, `View the original visualization on NASA's Scientific Visualization Studio${svsId ? ` (SVS #${svsId})` : ''}`)
-        : 'Source link coming soon.',
+        : 'No source link was given for this dataset.',
     ),
   ];
 }
@@ -80,14 +79,7 @@ export function renderInfo(container, record) {
   const status = statusLabel(record);
   const parts = [
     h('h3', { class: 'info-title' }, record.title),
-    status && h('p', {}, h('span', { class: `record-badge badge-${statusKind(record)}` }, status)),
-    !record.playable &&
-      h(
-        'p',
-        { class: 'notice' },
-        h('strong', {}, 'Data not ready yet. '),
-        'This record is coming soon. The description and sounds below are placeholders.',
-      ),
+    status && h('p', {}, h('span', { class: 'record-badge badge-mock' }, status)),
     record.description && h('p', {}, record.description),
     h('h4', {}, 'Colours'),
     legendBlock(record),

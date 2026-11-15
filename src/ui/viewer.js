@@ -257,15 +257,6 @@ export function showLoading(record) {
   setStatus(`Loading ${record.title}…`);
 }
 
-export function showNotReady(record) {
-  unloadVideo();
-  hideCanvas();
-  setStatus(
-    `Data not ready yet. ${record.title} is coming soon. Choose a record marked "Ready to play" to listen now.`,
-    'notice',
-  );
-}
-
 export function showError(text) {
   unloadVideo();
   hideCanvas();

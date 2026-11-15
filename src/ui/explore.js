@@ -371,7 +371,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     /** E / Explore map button. */
     focusMap() {
       if (!s.data) {
-        announce('Choose a record marked "Ready to play" first, then explore its picture.', { force: true });
+        announce('Choose a record first, then explore its picture.', { force: true });
         return;
       }
       mapEl.focus();

@@ -2,9 +2,11 @@
 //
 // This file never replaces public/data/index.json (Person 1's manifest).
 // At load time mergeRecords() combines the two:
+//   - Only datasets listed in index.json are shown. An entry here that is not
+//     in index.json is ignored, so UI settings can be prepared ahead of the data.
 //   - index.json wins for title, description, colorMeaning, source, credit.
-//   - A record listed in index.json is playable; any other record is shown
-//     as "Coming soon" using the placeholder text below.
+//   - A dataset in index.json with no entry here still appears, with neutral
+//     defaults (screen-grid place words, no dates), so new data shows up at once.
 //
 // Fields:
 //   id           folder / manifest id
@@ -14,7 +16,6 @@
 //   accent       decorative colour for the record label. Chosen to reach at
 //                least 3:1 against every panel background in both themes.
 //                It is never used for text and never carries meaning alone.
-//   description  placeholder, only shown while the record is not in index.json
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                fallback and the legend bar; null if the colour key is unknown
 //   summary      { subject, high, preposition? } wording for "where is it highest"
@@ -45,9 +46,8 @@
 //                part of the video that UI overlays must not cover (co2 date label)
 //   valueUnit.bands  optional [{ min, words }], highest min first: a short plain
 //                descriptor after the number ("about 28 °C, warm tropical water")
-//   sounds       visual→sound mappings ({ from, to, detail }) for the info panel.
-//                Playable records: kept in line with src/audio/CONTRACT.md §6 and
-//                src/audio/presets/<id>.js. Coming-soon records: planned placeholders.
+//   sounds       visual→sound mappings ({ from, to, detail }) for the info panel,
+//                kept in line with src/audio/CONTRACT.md §6 and src/audio/presets/<id>.js.
 
 export const RECORDS = [
   {
@@ -182,104 +182,29 @@ export const RECORDS = [
       { from: 'Position on screen', to: 'left or right', detail: 'Sounds on the left come from the left side of the globe on screen, sounds on the right from the right side.' },
     ],
   },
-  {
-    id: 'aerosols',
-    shortTitle: 'Aerosols',
-    title: 'GEOS Aerosols',
-    soundHint: 'Layered textures, one voice for each kind of particle',
-    accent: '#b5651d',
-    description:
-      'A computer model of tiny particles in the air, such as dust, sea salt, smoke and pollution, as the wind carries them around the globe.',
-    legend: null,
-    summary: { subject: 'aerosols', high: 'Most aerosols' },
-    sounds: [
-      { from: 'Kind of particle', to: 'instrument', detail: 'Dust, sea salt and smoke each get their own voice.' },
-      { from: 'Amount', to: 'loudness', detail: 'Thicker haze plays louder.' },
-    ],
-  },
-  {
-    id: 'air-quality',
-    shortTitle: 'Air Quality',
-    title: 'Air Quality Model Runs',
-    soundHint: 'A hum that thickens as pollution builds up',
-    accent: '#2b8a3e',
-    description:
-      'Computer forecasts of air pollution near the ground, showing how pollution builds up over cities and drifts with the weather.',
-    legend: null,
-    summary: { subject: 'air pollution', high: 'Most pollution' },
-    sounds: [
-      { from: 'Pollution level', to: 'pitch and texture', detail: 'Dirtier air makes the hum higher and thicker.' },
-      { from: 'Where pollution builds up', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-    ],
-  },
-  {
-    id: 'perpetual-ocean',
-    shortTitle: 'Perpetual Ocean 2',
-    title: 'Perpetual Ocean 2',
-    soundHint: 'Flowing arpeggios that follow the ocean currents',
-    accent: '#1c7ed6',
-    description:
-      'Ocean surface currents drawn as flowing streaks, showing swirling eddies and great currents like the Gulf Stream that carry water and heat around the planet.',
-    legend: null,
-    summary: { subject: 'ocean currents', high: 'Fastest currents' },
-    sounds: [
-      { from: 'Current speed', to: 'tempo', detail: 'Faster currents play faster arpeggios.' },
-      { from: 'Where the currents are', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-    ],
-  },
-  {
-    id: 'atmospheric-river',
-    shortTitle: 'Atmospheric River 3D',
-    title: 'Atmospheric River 3D',
-    soundHint: 'A rising wash of sound as moisture flows ashore',
-    accent: '#5c7cfa',
-    description:
-      'A 3D view of an atmospheric river: a long, narrow band of water vapour flowing through the sky that can bring heavy rain and snow when it reaches land.',
-    legend: null,
-    summary: { subject: 'water vapour', high: 'Most water vapour' },
-    sounds: [
-      { from: 'Water vapour', to: 'loudness and pitch', detail: 'Wetter air swells louder and higher.' },
-      { from: 'Where the river flows', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-    ],
-  },
-  {
-    id: 'gedi-forest',
-    shortTitle: 'GEDI Forest Height',
-    title: 'GEDI Forest Height',
-    soundHint: 'Deep notes for tall forests, light notes for open land',
-    accent: '#5c940d',
-    description:
-      'Forest canopy height measured by GEDI, a laser instrument on the International Space Station. Taller forests usually store more carbon.',
-    legend: null,
-    summary: { subject: 'forest height', high: 'Tallest forests' },
-    sounds: [
-      { from: 'Canopy height', to: 'pitch', detail: 'Taller forests play lower, deeper notes.' },
-      { from: 'Forest cover', to: 'number of notes', detail: 'Denser forest adds more notes.' },
-    ],
-  },
 ];
 
 const DEFAULT_ACCENT = '#6f7ba0';
 
 /**
  * Combine the UI catalogue with the manifest entries from index.json.
- * Returns records in catalogue order, followed by any manifest entries the
- * catalogue does not know about yet (so new data shows up automatically).
+ * Returns the index.json datasets: catalogue order first, then any datasets
+ * the catalogue does not know about yet (so new data shows up automatically).
  */
 export function mergeRecords(indexEntries = []) {
   const byId = new Map(indexEntries.map((e) => [e.id, e]));
   const known = new Set(RECORDS.map((r) => r.id));
 
-  const merged = RECORDS.map((cfg) => {
-    const entry = byId.get(cfg.id) ?? null;
+  const merged = RECORDS.filter((cfg) => byId.has(cfg.id)).map((cfg) => {
+    const entry = byId.get(cfg.id);
     return {
       id: cfg.id,
       shortTitle: cfg.shortTitle,
-      title: entry?.title ?? cfg.title,
-      description: entry?.description ?? cfg.description ?? '',
-      colorMeaning: entry?.colorMeaning ?? cfg.colorMeaning ?? '',
-      source: entry?.source ?? '',
-      credit: entry?.credit ?? 'NASA/SVS',
+      title: entry.title ?? cfg.title,
+      description: entry.description ?? '',
+      colorMeaning: entry.colorMeaning ?? '',
+      source: entry.source ?? '',
+      credit: entry.credit ?? 'NASA/SVS',
       soundHint: cfg.soundHint,
       accent: cfg.accent ?? DEFAULT_ACCENT,
       legend: cfg.legend ?? null,
@@ -295,8 +220,7 @@ export function mergeRecords(indexEntries = []) {
       outside: cfg.outside ?? null,
       keepClear: cfg.keepClear ?? null,
       sounds: cfg.sounds ?? [],
-      playable: !!entry,
-      mock: !!entry?.mock,
+      mock: !!entry.mock,
       entry,
     };
   });
@@ -311,7 +235,7 @@ export function mergeRecords(indexEntries = []) {
       colorMeaning: entry.colorMeaning ?? '',
       source: entry.source ?? '',
       credit: entry.credit ?? 'NASA/SVS',
-      soundHint: 'Sound design coming soon',
+      soundHint: 'NASA data, played as music',
       accent: DEFAULT_ACCENT,
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
@@ -327,7 +251,6 @@ export function mergeRecords(indexEntries = []) {
       outside: null,
       keepClear: null,
       sounds: [],
-      playable: true,
       mock: !!entry.mock,
       entry,
     });
@@ -336,15 +259,10 @@ export function mergeRecords(indexEntries = []) {
   return merged;
 }
 
-/** Short status phrase used on badges and in announcements. */
+/**
+ * Badge text for a record, or '' for none. Every listed record is real and
+ * ready to play, so only generated test data ("mock": true) gets a badge.
+ */
 export function statusLabel(record) {
-  if (!record.playable) return 'Coming soon';
-  if (record.mock) return 'Mock data';
-  return 'Ready to play';
-}
-
-/** Badge style for a record: 'ready' | 'mock' | 'soon'. */
-export function statusKind(record) {
-  if (!record.playable) return 'soon';
-  return record.mock ? 'mock' : 'ready';
+  return record.mock ? 'Mock data' : '';
 }

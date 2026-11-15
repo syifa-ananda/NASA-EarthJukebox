@@ -14,8 +14,6 @@
   --focus: #ffd166;
   --danger: #ff9b9b;
   --badge-mock: #ffd98a;
-  --badge-soon: #d0c2ff;
-  --badge-ready: #9fe3b0;
   --disc: #15151c;
   --disc-groove: #2c2c38;
   --btn-text: #0b1020;
@@ -39,8 +37,6 @@
     --focus: #b0400b;
     --danger: #a3171d;
     --badge-mock: #7a4a00;
-    --badge-soon: #5a3ea6;
-    --badge-ready: #1c6b35;
     --btn-text: #ffffff;
   }
 }
@@ -303,6 +299,12 @@ a:hover {
   font-weight: 700;
 }
 
+.records-more {
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
 .record-items {
   display: grid;
   gap: 0.5rem;
@@ -337,9 +339,6 @@ a:hover {
   border-radius: var(--radius);
 }
 
-.record-card.is-soon {
-  border-style: dashed;
-}
 
 .record-input:hover + .record-card {
   border-color: var(--accent);
@@ -373,9 +372,6 @@ a:hover {
   );
 }
 
-.record-card.is-soon .record-disc {
-  filter: grayscale(1);
-}
 
 .record-text {
   display: grid;
@@ -427,13 +423,7 @@ a:hover {
   color: var(--badge-mock);
 }
 
-.badge-soon {
-  color: var(--badge-soon);
-}
 
-.badge-ready {
-  color: var(--badge-ready);
-}
 
 /* Playing indicator: the selected record's disc spins (static under reduced
    motion; the Pause label and the "Playing" caption carry the state too). */
@@ -867,11 +857,6 @@ a:hover {
   margin: 0 0 0.6rem;
 }
 
-.notice {
-  padding: 0.5rem 0.75rem;
-  border-left: 4px solid var(--badge-soon);
-  background: var(--surface-2);
-}
 
 .legend-bar {
   height: 14px;
@@ -926,4 +911,159 @@ a:hover {
   .panel {
     border-color: CanvasText;
   }
+}
+
+/* ---------- Buttons that look like links (open the shortcuts dialog) ---------- */
+
+.link-button {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent-strong);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.35em;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* ---------- Keyboard shortcuts dialog ---------- */
+
+.sc-dialog {
+  width: min(42rem, calc(100% - 2rem));
+  max-height: min(48rem, calc(100vh - 2rem));
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.sc-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.sc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.sc-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.sc-setting {
+  padding: 0 1rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sc-body {
+  padding: 0.5rem 1rem 1rem;
+  overflow: auto;
+}
+
+.sc-intro {
+  margin: 0.25rem 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.sc-group h3 {
+  margin: 1rem 0 0.35rem;
+  font-size: 1rem;
+}
+
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.sc-table th,
+.sc-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.sc-table thead th {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sc-table tbody th {
+  width: 40%;
+  font-weight: 600;
+}
+
+.sc-mac {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.sc-tip {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.9rem;
+}
+
+/* ---------- How to listen ---------- */
+
+.about-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.25rem 1.5rem;
+}
+
+.about-body h3 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 1rem;
+}
+
+.about-body p,
+.about-body ul,
+.about-body ol {
+  margin: 0 0 0.5rem;
+}
+
+.about-body ul,
+.about-body ol {
+  padding-left: 1.2rem;
+}
+
+.about-body li {
+  margin-bottom: 0.3rem;
 }

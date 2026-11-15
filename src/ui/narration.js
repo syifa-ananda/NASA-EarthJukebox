@@ -264,7 +264,7 @@ export function createLiveNarration({ captionEl, getIndex }) {
       if (announceIt) announce(`Narration: ${LEVEL_LABELS[level].toLowerCase()}`, { force: true });
     },
 
-    /** New record (data = null while loading / not playable). */
+    /** New record (data = null while it loads). */
     setContext(record, data) {
       cancelTimers();
       playing = false;

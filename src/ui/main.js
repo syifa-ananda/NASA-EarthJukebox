@@ -7,7 +7,8 @@ import { renderInfo } from './info.js';
 import * as viewer from './viewer.js';
 import { announce } from './narrator.js';
 import { createPlayer } from './player.js';
-import { installShortcuts } from './shortcuts.js';
+import { installShortcuts, setSingleKeyShortcuts, singleKeyShortcutsEnabled, onSingleKeyShortcutsChange } from './shortcuts.js';
+import { createShortcutsDialog } from './shortcuts-dialog.js';
 import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
 import { createSoundSettings } from './sound-settings.js';
 import { createExplore } from './explore.js';
@@ -30,7 +31,7 @@ const state = {
 let picker = null;
 let announceTimer = null;
 
-// ---------- URL hash: #record=<id>&narration=<level> ----------
+// ---------- URL hash: #record=<id>&narration=<level>[&keys=off] ----------
 
 function readHash() {
   const params = new URLSearchParams(location.hash.slice(1));
@@ -39,6 +40,7 @@ function readHash() {
   return {
     record: record && /^[\w-]+$/.test(record) ? record : null,
     narration: isLevel(narration) ? narration : null,
+    singleKeys: params.get('keys') !== 'off', // on unless the hash says off
   };
 }
 
@@ -46,6 +48,7 @@ function writeHash() {
   const params = new URLSearchParams();
   if (state.current) params.set('record', state.current.id);
   params.set('narration', narration.getLevel());
+  if (!singleKeyShortcutsEnabled()) params.set('keys', 'off');
   // replaceState: no history entry per arrow press, and no hashchange event.
   history.replaceState(null, '', `#${params}`);
 }
@@ -101,14 +104,28 @@ installShortcuts({
   whereAmI: () => explore.whereAmI(),
   compare: () => explore.compare(),
   legend: () => soundSettings.playLegend(),
+  help: () => shortcutsDialog.open(document.activeElement),
+});
+
+// ---------- Keyboard shortcuts dialog ----------
+
+const shortcutsDialog = createShortcutsDialog(document.getElementById('shortcuts-dialog'));
+
+// The header button and the "How to listen" button both open it.
+document.addEventListener('click', (event) => {
+  const opener = event.target.closest('[data-open-shortcuts]');
+  if (opener) shortcutsDialog.open(opener);
+});
+
+// Turning single-key shortcuts on or off: remember it and update the hint.
+onSingleKeyShortcutsChange(() => {
+  writeHash();
+  player.refreshHelp();
 });
 
 // ---------- Selection ----------
 
 function selectionMessage(record) {
-  if (!record.playable) {
-    return `Selected ${record.title}. Coming soon, data not ready yet.`;
-  }
   const status = statusLabel(record);
   return `Selected ${record.title}.${status ? ` ${status}.` : ''} Press Tab to reach the player.`;
 }
@@ -135,11 +152,6 @@ async function selectRecord(id, { announceIt = true } = {}) {
   nowPlaying.textContent = record.title;
   renderInfo(infoBody, record);
   if (announceIt) scheduleAnnouncement(record);
-
-  if (!record.playable) {
-    viewer.showNotReady(record);
-    return;
-  }
 
   viewer.showLoading(record);
   try {
@@ -182,6 +194,7 @@ async function init() {
 
   const fromHash = readHash();
   if (fromHash.narration) setNarrationLevel(fromHash.narration, { announceIt: false });
+  setSingleKeyShortcuts(fromHash.singleKeys);
 
   let entries;
   try {
@@ -202,6 +215,7 @@ async function init() {
   window.addEventListener('hashchange', () => {
     const next = readHash();
     if (next.narration && next.narration !== narration.getLevel()) setNarrationLevel(next.narration);
+    setSingleKeyShortcuts(next.singleKeys);
     if (next.record && next.record !== state.current?.id) {
       picker.check(next.record);
       selectRecord(next.record);
