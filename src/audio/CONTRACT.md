@@ -54,11 +54,18 @@ Browsers only allow sound after a user gesture. Clicking the video's play button
 
 ## 4. Per-file normalization
 
-Each dataset uses only part of the 0–1 range (e.g. dark night-light maps have brightness 0.03–0.28). The engine rescales each field to the range the file actually uses before mapping it to sound, so presets work the same on mock and real data.
+The real data moves very little (night lights brightness 0.087 → 0.111, co2 `value` 0.018 → 0.049), but those small changes are the real signal. The engine rescales each field to the range the file actually uses before mapping it to sound, so they become clearly audible.
 
-- `analyzeRanges(featuresFile)` → `Ranges`. For `brightness`, `warmth`, `density`, `motion` and `value` it takes the 5th–95th percentile over all frames. It does the same over all `grid` cells, for the probe pitch.
-- Ranges narrower than 0.1 are widened around their centre (`widened: true`), so noise in a nearly constant field doesn't swing the sound.
+- `analyzeRanges(featuresFile)` → `Ranges`. For `brightness`, `warmth`, `density`, `motion`, `value` and any preset-derived fields, it takes the 5th–95th percentile over all frames.
+- **Minimum span.** A range narrower than the field's minimum span is widened around its centre (`widened: true`), so pure noise doesn't swing the sound. The minimum span is the largest of:
+  - 0.004 (the data has 3 decimals)
+  - 5 % of the field's typical level
+  - 3× its typical frame-to-frame jitter
+
+  Real trends pass. Near-constant fields stay calm, such as `warmth` and the global sst mean, and so do jittery ones, such as co2 `motion` from the camera. A preset can override it per field (`normalize.minSpan`).
+- **Grid.** Grid cells of `0` mean "nothing there" (land, unlit, no lightning, off the globe), so the grid range uses only non-zero cells. That range sets the probe pitch.
 - `pan` and `flashes` are not rescaled: one is a real position, the other a count.
+- **Derived fields.** A preset can compute extra fields from each frame (`derive`). sst does this: its melody follows `seasons`, the northern minus the southern mid-latitude ocean temperature, because the global mean barely moves within a year.
 - `loadDataset(file)` = `loadPreset(file.dataset)` + `setRanges(analyzeRanges(file))`. `syncToVideo` calls it for you.
 - `setRanges(null)` turns normalization off; `getRanges()` returns the current ranges.
 - **Words match the sound.** `describeFrame()` uses the same normalized values as the sound: its level words ("very low" … "very high") and "rising / falling pitch" are **relative to the current dataset's range**. "High night light" means bright for this dataset, and "rising pitch" only appears when the played note actually goes up. Without ranges it falls back to the raw values.
@@ -78,9 +85,9 @@ All functions are named exports of `src/audio/engine/index.js`.
 | `playFrame(features, { frameSeconds }?)` → `SoundParams` | Feeds one `frames[]` entry. Changes are smoothed with ramps. `frameSeconds` (default 0.5) is how long the frame lasts; `flashes` hits are spread over it. |
 | `play()` → `Promise` / `pause()` | Start or resume / pause the music. `play()` calls `init()` if needed. |
 | `setVolume(v)` | Master volume, `0` to `1`. |
-| `probe(x, y)` → `ProbeResult` | Explore mode: one short tone for cell `frame.grid[y][x]`. `x` = column 0–31 (west → east), `y` = row 0–15 (north → south). Column → stereo position, value → pitch. Returns `{ x, y, value, pan, midi, note, sounded }`; `value` is raw. Works while paused. |
+| `probe(x, y)` → `ProbeResult` | Explore mode: one short tone for cell `frame.grid[y][x]`. `x` = column 0–31 (left → right), `y` = row 0–15 (top → bottom); west/north on the maps, but **co2 is a screen grid on a turning globe**, so don't announce co2 cells as places. Column → stereo position, value → pitch. Returns `{ x, y, value, pan, empty, label, level, midi, note, sounded }`. `value` is raw. **A cell of 0 is empty**: no note, just a soft tick, and `empty: true` with `label` (e.g. "land, where there is no ocean data"). Otherwise `level` is "very low" … "very high" for this dataset. Works while paused. |
 | `playLegend({ duration }?)` → `{ text, duration, sounded }` | Audio legend: plays the scale from the lowest to the highest value (same notes as the probe) in about 3 s, with the music turned down meanwhile. `text` is for screen readers. |
-| `describeFrame(features, preset?, prev?)` → `string` | Short sentence for an ARIA live region, e.g. `"high water temperature, rising pitch, panned left"`. Words are relative to the current dataset's range (section 4). |
+| `describeFrame(features, preset?, prev?)` → `string` | Short sentence for an ARIA live region. Words are relative to the current dataset's range (section 4). Examples from the real data: `"year 2023, very high night light, steady pitch, centred"`, `"over South America, high carbon dioxide in view, rising pitch, centred"`, `"northern oceans at their warmest, steady pitch, centred"`, `"very high lightning activity, falling pitch, panned left, 3 storm bursts"`. |
 | `startRecording()` / `stopRecording()` → `Promise<Blob>` | Records everything you hear. The blob is webm/opus in Chrome and Firefox, mp4 in Safari (check `blob.type`). `isRecording()`, `isRecordingSupported()`. |
 | `dispose()` | Stops everything and frees all audio nodes. `init()` can start again. |
 | `listPresets()`, `getPreset(id)`, `hasPreset(id)` | Preset info for menus; every preset has a `soundDescription` for screen readers. |
@@ -90,12 +97,12 @@ Accessibility notes for the UI:
 
 - **`soundDescription`**: read it when a dataset is chosen (`currentPreset().soundDescription`).
 - **Legend**: offer a "Play legend" button. Show or announce the returned `text` while it plays.
-- **Throttle `describeFrame`** to about one announcement every 2–3 seconds.
-- **Probe from the keyboard**: arrow keys move one cell, then call `probe(x, y)` and announce the result (e.g. `"Column 6, row 9: value 0.62, note E4"`). `src/audio/dev/` has a working example.
+- **Throttle `describeFrame`** to about one announcement every 2–3 seconds, but always deliver the latest sentence when the window opens, so a seek or the last frame isn't left unannounced. `announceLatest()` in `src/audio/dev/dev.js` does this.
+- **Probe from the keyboard**: arrow keys move one cell, then call `probe(x, y)` and announce the result, e.g. `"Column 8, row 5: very high, value 0.92"` or `"Column 6, row 16: empty (no lights: ocean or unlit land)"`. `src/audio/dev/` has a working example.
 
 ## 6. How data becomes sound
 
-Follows the "Ideas for sound" column of the data contract. Every pitch is snapped to a scale (major pentatonic for warm frames, minor pentatonic for cool ones; lightning and co2 always use minor pentatonic). Every change is ramped, never jumped.
+Follows the "Ideas for sound" column of the data contract, with per-preset changes listed below. Every pitch is snapped to a scale. In the real data `warmth` barely changes, so each preset uses one fixed key: major pentatonic for sst and nightlights, minor pentatonic for lightning and co2. Only `default` switches key with `warmth`. Every change is ramped, never jumped.
 
 | Field (after normalization) | Sound |
 |---|---|
@@ -108,24 +115,24 @@ Follows the "Ideas for sound" column of the data contract. Every pitch is snappe
 | `flashes` | percussion hits, one per flash (capped per preset) |
 | `grid` | used only by `probe(x, y)` |
 
-| Preset | Sound |
-|---|---|
-| `sst` | flowing FM pads, motion swells them, temperature sets the pitch, soft bells on top |
-| `nightlights` | bells whose number grows with brightness, so the piece fills in from 2012 to 2023 |
-| `lightning` | thunder and crackle hit on each flash, panned to the storm; sparse minor pad |
-| `co2` | low drone that thickens with density, rises with `value`, and adds a clashing note when values are high |
-| `default` | pluck melody, soft pad and a light knock for flashes; used for any other dataset id |
+| Preset | Sound (real data) | Differences from the default mapping |
+|---|---|---|
+| `sst` | flowing pads; the melody climbs from March to its top in August–September and sinks again by March, following the seasons; soft bells on top | pitch ← derived `seasons` (northern minus southern mid-latitude ocean, land ignored) |
+| `nightlights` | bells that get louder, brighter, higher and busier from 2012 to 2023; small dip in 2020, big fill-in in 2022–23; a low chime at each new year | note rate and tempo ← brightness; year-marker layer on `motion`; descriptions start with the year |
+| `lightning` | a thunder thump and crackle for each storm burst, placed where it bursts; a minor pad that swells each northern summer; quiet start and end | pan moves instantly (`panRamp` 0.05 s) so each hit lands at its storm |
+| `co2` | a low drone following the globe tour: thicker, louder, brighter and higher over East Asia and the Amazon (with a clashing tension note), thin and dark over Africa and the Atlantic | loudness ← density, filter ← value (the globe's brightness is deserts, not CO₂); gentle pan and tempo (camera); descriptions start with the region |
+| `default` | pluck melody, soft pad and a light knock for flashes; used for any other dataset id | none |
 
-**Levels.** Each preset has a `trimDb` setting so all presets sound equally loud: about −20 dB RMS, measured from recordings. Peaks stay below −1 dBFS: a limiter plus a soft clipper on the final output catch fast attacks. Re-measure after changing instruments.
+**Levels.** Each preset has a `trimDb` setting so all presets sound equally loud: about −20 dB RMS, measured from recordings of the real data. Peaks stay below −1 dBFS: a limiter plus a soft clipper on the final output catch fast attacks. Re-measure after changing instruments or data.
 
 ## 7. Requests to Person 1 (data)
 
 Nothing here blocks the audio; the current contract is enough.
 
-1. **Units for `value`** (optional fields in `index.json`, e.g. `valueUnit: "°C"`, `valueMin: -2`, `valueMax: 32`). Then `describeFrame` and the probe could say "about 28 °C" instead of "high".
+1. **Units for `value` and the grid** (optional fields in `index.json`). For sst, cells are temperature ÷ 32 °C, so `valueScale: 32, valueUnit: "°C"` would let the probe say "about 28 °C" instead of "very high". nightlights, lightning and co2 have no physical unit, so they keep the relative words.
 2. **Ids for new datasets** (aerosols, GEDI forest height, atmospheric rivers, air quality). Any new id plays with the `default` preset straight away; tell us the id and we'll add a dedicated preset.
 3. **Aerosols, per particle type.** The plan is one instrument layer per particle type. That needs a 0–1 value per type per frame (e.g. `"types": { "dust": 0.4, "smoke": 0.1 }`). This would be a contract change, so only if the whole team agrees.
-4. **Videos at the path in `index.json`** (`public/data/<id>/video.mp4`), with the same frame timing as `features.json` (frame `i` at `i / fps` seconds). `syncToVideo` relies on that.
+4. **Keep video and data in step.** `syncToVideo` relies on frame `i` being at `i / fps` seconds. The current videos match: sst 66.7 s for 133 frames, nightlights 30.0 s for 60, lightning 100.1 s for 200, co2 39.2 s for 78.
 
 ## 8. Upgrading Tone.js
 

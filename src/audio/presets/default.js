@@ -14,6 +14,7 @@ export default {
   valueLabel: 'value',
   valueWords: { low: 'lower values', high: 'higher values' },
   legendExtra: '',
+  emptyLabel: 'nothing there',
 
   rootMidi: 48,            // C3
   octaves: 2,
@@ -54,7 +55,7 @@ export default {
     maxHits: 6,
     hitWindow: 0.5,
     reverb: { decay: 3.5, wet: 0.3 },
-    trimDb: 0,              // loudness match across presets (measured, about -20 dB RMS)
+    trimDb: 2,              // loudness match across presets (measured, about -20 dB RMS)
   },
 
   layers: [

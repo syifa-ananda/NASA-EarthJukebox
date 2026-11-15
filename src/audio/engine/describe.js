@@ -1,14 +1,15 @@
-// Short plain-language sentences for ARIA live regions. Pure, no Tone.js.
+// Short plain-language sentences for ARIA live regions and the audio legend.
+// Pure, no Tone.js.
 
-import { sanitizeFrame } from './mapping.js';
+import { sanitizeFrame, withDerived } from './mapping.js';
 import { normalizeFrame } from './normalize.js';
 import { getScale, quantizeStep } from '../scales.js';
 
 const LEVELS = ['very low', 'low', 'medium', 'high', 'very high'];
 
-/** 0-1 -> 'very low' ... 'very high'. */
-export function levelWord(v) {
-  return LEVELS[Math.min(LEVELS.length - 1, Math.floor(v * LEVELS.length))];
+/** 0-1 -> 'very low' ... 'very high' (or a preset's own five words). */
+export function levelWord(v, words = LEVELS) {
+  return words[Math.min(words.length - 1, Math.max(0, Math.floor(v * words.length)))];
 }
 
 /** -1..1 -> 'panned far left' ... 'centred' ... 'panned far right'. */
@@ -21,12 +22,20 @@ export function panWord(pan) {
 }
 
 /**
- * e.g. "high water temperature, rising pitch, panned left".
+ * e.g. "year 2016, medium night light, rising pitch, centred".
  *
  * Words describe what you hear, so they use the same normalized values as the
  * sound mapping: "high" means high for this dataset (relative to its ranges),
  * and the pitch trend compares the actual scale steps played. Without ranges
- * the raw 0-1 values are used. Counts (flashes) and pan are never rescaled.
+ * the raw values are used. Counts (flashes) and pan are never rescaled.
+ *
+ * Presets can tune the wording with `describe`:
+ *   field       which (possibly derived) field the level word describes (default 'value')
+ *   levels      five words/phrases from lowest to highest (default 'very low' ... 'very high'
+ *               followed by valueLabel)
+ *   prefix      (frame, seconds) => string | null, e.g. 'year 2016' or 'over Africa'
+ *   motionWord  phrase for fast change (default 'changing fast'; null = never said)
+ *   flashWords  [singular, plural] noun for `flashes` (default ['flash', 'flashes'])
  *
  * @param {Partial<import('../types.js').Frame>} features
  * @param {import('../types.js').Preset} preset
@@ -34,17 +43,30 @@ export function panWord(pan) {
  * @param {import('../types.js').Ranges | null} [ranges]  The dataset's ranges (analyzeRanges).
  */
 export function describeFrame(features, preset, prev, ranges) {
-  const f = normalizeFrame(sanitizeFrame(features), ranges ?? null);
-  const parts = [`${levelWord(f.value)} ${preset?.valueLabel ?? 'value'}`];
+  const cfg = preset?.describe ?? {};
+  const raw = sanitizeFrame(features);
+  const f = normalizeFrame(withDerived(raw, preset), ranges ?? null);
+  const parts = [];
+
+  const seconds = raw.t / (ranges?.fps || 2);
+  const prefix = cfg.prefix?.(raw, seconds);
+  if (prefix) parts.push(prefix);
+
+  const level = f[cfg.field ?? 'value'] ?? f.value;
+  parts.push(cfg.levels ? levelWord(level, cfg.levels) : `${levelWord(level)} ${preset?.valueLabel ?? 'value'}`);
 
   if (prev && typeof prev.value === 'number') {
-    const before = normalizeFrame(sanitizeFrame(prev), ranges ?? null);
+    const before = normalizeFrame(withDerived(sanitizeFrame(prev), preset), ranges ?? null);
     const d = pitchStep(f, preset) - pitchStep(before, preset);
     parts.push(d > 0 ? 'rising pitch' : d < 0 ? 'falling pitch' : 'steady pitch');
   }
   parts.push(panWord(f.pan));
-  if (f.flashes > 0) parts.push(f.flashes === 1 ? '1 flash' : `${f.flashes} flashes`);
-  if (f.motion > 0.75) parts.push('changing fast');   // top quarter of this dataset's motion
+  if (f.flashes > 0) {
+    const [one, many] = cfg.flashWords ?? ['flash', 'flashes'];
+    parts.push(f.flashes === 1 ? `1 ${one}` : `${f.flashes} ${many}`);
+  }
+  const motionWord = cfg.motionWord === undefined ? 'changing fast' : cfg.motionWord;
+  if (motionWord && f.motion > 0.75) parts.push(motionWord);   // top quarter of this dataset's motion
 
   return parts.join(', ');
 }
@@ -53,7 +75,7 @@ export function describeFrame(features, preset, prev, ranges) {
 function pitchStep(f, preset) {
   const field = preset?.sources?.pitch ?? 'value';
   const weight = preset?.weights?.[field] ?? 1;
-  const v = Math.min(1, Math.max(0, f[field] * weight));
+  const v = Math.min(1, Math.max(0, (f[field] ?? 0) * weight));
   return quantizeStep(v, getScale(preset?.scales?.warm), preset?.octaves ?? 2);
 }
 
@@ -68,8 +90,9 @@ export function legendText(preset) {
   const high = preset?.valueWords?.high ?? `higher ${label}`;
   const parts = [
     `Low notes mean ${low}, high notes mean ${high}.`,
-    'Sounds on the left come from the west of the map, sounds on the right from the east.',
+    preset?.legendPan ?? 'Sounds on the left come from the west of the map, sounds on the right from the east.',
   ];
   if (preset?.legendExtra) parts.push(preset.legendExtra);
+  if (preset?.emptyLabel) parts.push(`In explore mode, a soft tick means ${preset.emptyLabel}.`);
   return parts.join(' ');
 }
