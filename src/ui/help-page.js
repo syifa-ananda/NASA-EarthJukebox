@@ -1,15 +1,17 @@
 // Entry point for how-to-listen.html: the keyboard shortcuts dialog (same
-// module as the jukebox) and the links back. No player, narration or audio.
+// module as the jukebox) and the links back. No player, description or audio.
 //
-// The URL hash carries the jukebox settings (#record=…&narration=…&keys=off…).
+// The URL hash carries the jukebox settings (#record=…&keys=off…).
 // This page uses keys=off itself (single-key shortcuts, here only "?") and
-// hands the whole hash back through the "Jukebox" links.
+// hands the whole hash back through the "Jukebox" links (minus the narration
+// key of older links, which no longer exists).
 
 import { createShortcutsDialog } from './shortcuts-dialog.js';
 import { installShortcuts, setSingleKeyShortcuts, singleKeyShortcutsEnabled, onSingleKeyShortcutsChange } from './shortcuts.js';
 import { handleInPageLinks, updateStateLinks } from './page-links.js';
 
 const params = new URLSearchParams(location.hash.slice(1));
+params.delete('narration');
 setSingleKeyShortcuts(params.get('keys') !== 'off');
 
 const shortcutsDialog = createShortcutsDialog(document.getElementById('shortcuts-dialog'));

@@ -34,7 +34,7 @@
 //                so coastal cells can be named "Coast near …" (see regions.js)
 //   aspect       width / height of the video (docs/sources.md); used until the
 //                video's own size is known, and for the heatmap fallback
-//   time         what a frame means in time, for the timeline and narration.
+//   time         what a frame means in time, for the timeline and captions.
 //                Taken from docs/sources.md; frames are spread evenly between
 //                start and end. null = no dates (lightning has none on purpose).
 //                  { kind: 'yearBlocks', startYear, framesPerYear }
@@ -42,7 +42,7 @@
 //   valueUnit    optional { scale, unit, round }: grid value × scale = a real
 //                quantity (sst: value = °C / 32, docs/data-contract.md §4)
 //   quiet        optional { field, frames, text }: when `field` is 0 for this
-//                many frames in a row, narration says `text` once and waits
+//                many frames in a row, the Live description shows `text`
 //   emptyLabel   optional: what an empty grid cell (value 0) means, for explore.
 //                Wins over the engine's probe label when set.
 //   emptyWaterLabel  optional, world maps only: what an empty cell means where

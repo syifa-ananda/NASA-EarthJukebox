@@ -22,11 +22,11 @@ const ABOUT = 'A soft voice marks the moments when the most carbon dioxide is in
 /**
  * @param {{ soundSettings: ReturnType<import('./sound-settings.js').createSoundSettings>,
  *           player: ReturnType<import('./player.js').createPlayer>,
- *           narration: ReturnType<import('./narration.js').createLiveNarration>,
+ *           description: ReturnType<import('./live-description.js').createLiveDescription>,
  *           alarmDatasets: string,   // e.g. "Carbon Dioxide"
  *           onChange?: (on: boolean) => void }} opts
  */
-export function createAlarmSetting({ soundSettings, player, narration, alarmDatasets, onChange = () => {} }) {
+export function createAlarmSetting({ soundSettings, player, description, alarmDatasets, onChange = () => {} }) {
   let enabled = ALARM_DEFAULT;
   let available = false; // the selected dataset has data and an alarm
   let previewUntil = 0;
@@ -68,7 +68,7 @@ export function createAlarmSetting({ soundSettings, player, narration, alarmData
     enabled = !!on;
     input.checked = enabled;
     audio.setAlarmEnabled(enabled);
-    narration.setAlarmEnabled(enabled);
+    description.setAlarmEnabled(enabled); // the alarm words in the Live description
     if (announceIt) announce(`Climate alarm ${enabled ? 'on' : 'off'}`, { force: true });
     onChange(enabled);
   }

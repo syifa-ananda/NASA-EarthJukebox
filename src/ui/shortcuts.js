@@ -8,16 +8,16 @@
 // - Never fire while focus is in a text field, <select> or slider, so native
 //   keys (arrows, Page Up/Down, Home/End, typing) keep working.
 // - Single-key shortcuts can be switched off (WCAG 2.1.4 Character Key
-//   Shortcuts): K, J, L, N, D, E, W, C, G, B and ?.
+//   Shortcuts): K, J, L, E, W, C, G, B and ?.
+// - Space stays on, because it only works while focus is on the player panel
+//   itself (WCAG 2.1.4 allows shortcuts that are active only on focus). The
+//   "Keyboard shortcuts" button always opens the list.
 // - B toggles the dataset sidebar (not Command+B, which browsers use for
-//   bookmarks). Space stays on, because it
-//   only works while focus is on the player panel itself (WCAG 2.1.4 allows
-//   shortcuts that are active only on focus). The "Keyboard shortcuts"
-//   button always opens the list.
+//   bookmarks).
 
 export const SHORTCUT_GROUPS = [
   { id: 'playback', title: 'Playback' },
-  { id: 'sound', title: 'Narration and sound' },
+  { id: 'sound', title: 'Sound' },
   { id: 'explore', title: 'Explore' },
   { id: 'layout', title: 'Layout' },
   { id: 'general', title: 'This list' },
@@ -28,8 +28,6 @@ export const SHORTCUTS = [
   { action: 'toggle', group: 'playback', keys: ['Space'], description: 'Play or pause, when focus is on the player panel itself (not on a button or slider)', focusOnly: true },
   { action: 'back', group: 'playback', keys: ['J'], description: 'Step back one frame' },
   { action: 'forward', group: 'playback', keys: ['L'], description: 'Step forward one frame' },
-  { action: 'cycleNarration', group: 'sound', keys: ['N'], description: 'Change narration: off, brief, detailed' },
-  { action: 'describe', group: 'sound', keys: ['D'], description: 'Describe the current frame in detail now' },
   { action: 'legend', group: 'sound', keys: ['G'], description: 'Play the audio legend: the notes from lowest to highest value' },
   { action: 'explore', group: 'explore', keys: ['E'], description: 'Explore the picture with the sound cursor' },
   { action: 'whereAmI', group: 'explore', keys: ['W'], description: 'Where is the sound cursor? Place, column, row and value' },
@@ -89,11 +87,11 @@ function isControl(el) {
 }
 
 const KEY_ACTIONS = {
-  k: 'toggle', j: 'back', l: 'forward', n: 'cycleNarration', d: 'describe', e: 'explore', w: 'whereAmI', c: 'compare',
+  k: 'toggle', j: 'back', l: 'forward', e: 'explore', w: 'whereAmI', c: 'compare',
   g: 'legend', b: 'toggleSidebar', '?': 'help',
 };
 
-/** actions: { toggle, back, forward, cycleNarration, describe, explore, whereAmI, compare, legend, toggleSidebar, help } */
+/** actions: { toggle, back, forward, explore, whereAmI, compare, legend, toggleSidebar, help } */
 export function installShortcuts(actions) {
   document.addEventListener('keydown', (event) => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;

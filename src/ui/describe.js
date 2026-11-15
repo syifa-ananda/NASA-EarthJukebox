@@ -1,4 +1,4 @@
-// "Where is it highest?" sentences for the detailed narration and the heatmap
+// "Where is it highest?" sentences for the heatmap
 // fallback's text alternative. Grid-aware (config/datasets.js → gridKind):
 //   world map: names the region of the highest cell ("over China and East Asia")
 //   screen:    picture positions only ("near the centre of the picture"); never

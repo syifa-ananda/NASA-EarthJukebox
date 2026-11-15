@@ -3,7 +3,7 @@
 //
 // The video is decoration for sighted users: it is muted (the files have no
 // audio track; sound comes from the engine), has no native controls, never
-// autoplays and is aria-hidden. The explore map, captions and narration
+// autoplays and is aria-hidden. The explore map, captions and live description
 // describe what it shows. The player (player.js) controls it.
 
 import { frameAt } from './adapters/data.js';

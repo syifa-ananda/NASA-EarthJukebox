@@ -1,7 +1,7 @@
 // The one control bar under the video:
 //   controls card, row 1: Play/Pause · Timeline (+ readout)
 //   controls card, row 2: Audio legend · Explore · Volume
-//   below the card:       Playback speed · Loop · shortcut hint
+//   below the card:       Playback speed · Loop · why Play is unavailable (until ready)
 // Same controls, order and behaviour as before the redesign; only the
 // grouping into a card is new. Every control has visible text; icons are
 // decoration only. Pure DOM: user input goes out through handlers,
@@ -142,7 +142,9 @@ export function createTransport(container, handlers) {
         else btn.setAttribute('aria-describedby', 'transport-help');
       }
       scrubber.disabled = !enabled;
+      // Why the controls are unavailable (aria-describedby); hidden once ready.
       help.textContent = helpText;
+      help.hidden = !helpText;
     },
 
     setPlaying(playing) {

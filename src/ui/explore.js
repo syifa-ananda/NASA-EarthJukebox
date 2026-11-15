@@ -25,7 +25,7 @@ import * as audio from './adapters/audio.js';
 import * as viewer from './viewer.js';
 import { announce } from './narrator.js';
 import { placeAt, compassAt } from './regions.js';
-import { frameLabel, rangesFor } from './narration.js';
+import { frameLabel, rangesFor } from './live-description.js';
 import { levelWord } from '../audio/engine/describe.js';
 import { normalizeValue } from '../audio/engine/normalize.js';
 import { getPreset } from '../audio/presets/index.js';
@@ -50,10 +50,9 @@ const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
 
 /**
  * @param {{ mapEl: HTMLElement, cursorEl: HTMLElement, readoutEl: HTMLElement,
- *           player: ReturnType<import('./player.js').createPlayer>,
- *           narration: ReturnType<import('./narration.js').createLiveNarration> }} opts
+ *           player: ReturnType<import('./player.js').createPlayer> }} opts
  */
-export function createExplore({ mapEl, cursorEl, readoutEl, player, narration }) {
+export function createExplore({ mapEl, cursorEl, readoutEl, player }) {
   const s = {
     record: null,
     data: null,
@@ -308,7 +307,6 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     if (!s.data || s.active) return;
     s.active = true;
     mapEl.classList.add('is-exploring');
-    narration.setExploring(true);
     player.setExploring(true);
     const wasPlaying = player.isPlaying();
     if (wasPlaying) player.pause({ silent: true });
@@ -327,7 +325,6 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
       s.active = false;
       clearTimeout(s.announceTimer);
       mapEl.classList.remove('is-exploring');
-      narration.setExploring(false);
       player.setExploring(false);
       showCursor();
       showReadout();

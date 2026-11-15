@@ -12,7 +12,7 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 import { cssGradient, rampRgb } from './color.js';
 import { statusLabel, sourceLabel } from './config/datasets.js';
-import { shortTime } from './narration.js';
+import { shortTime } from './live-description.js';
 // Plain JS, no Tone.js: works even when the audio engine falls back to the stub.
 import { getPreset } from '../audio/presets/index.js';
 import { presetText } from './preset-text.js';

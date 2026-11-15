@@ -1048,7 +1048,7 @@ kbd {
 
 /* ---------- Player ---------- */
 
-/* Same order as always: heading, stage, Live narration, Sound settings, status. */
+/* Same order as always: heading, stage, Live description, Sound settings, status. */
 .player {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1376,7 +1376,7 @@ kbd {
   white-space: nowrap;
 }
 
-/* Below the card: speed, loop | narration, Settings. */
+/* Below the card: speed, loop, and why Play is unavailable (until ready). */
 .transport-more {
   display: flex;
   flex-wrap: wrap;
@@ -1438,7 +1438,7 @@ kbd {
   }
 }
 
-/* ---------- Live narration card ---------- */
+/* ---------- Live description card (written text only) ---------- */
 
 .narration-card {
   display: grid;
@@ -1515,51 +1515,6 @@ kbd {
   font-weight: 600;
 }
 
-.narration-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 16px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-/* A legend inside a flex fieldset sits on its own line; float keeps it
-   inline with the options. */
-.narration-controls legend {
-  float: left;
-  margin-right: 12px;
-  padding: 0;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 44px;
-  color: var(--text-heading);
-}
-
-.narration-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 16px;
-}
-
-.narration-option label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  font-size: 16px;
-  color: var(--text-body);
-  cursor: pointer;
-}
-
-.narration-option input {
-  width: 20px;
-  height: 20px;
-  margin: 0;
-}
-
 .setting-row {
   display: flex;
   flex-wrap: wrap;
@@ -1583,6 +1538,13 @@ kbd {
 
 .setting-switch .setting-row {
   margin-top: 0;
+}
+
+/* The first switch sits right under the heading: no separator line. */
+.setting-switches > .setting-switch:first-child {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .setting-switch .t-check {

@@ -16,7 +16,7 @@
 //   < 720px      one column: everything in full, no toggles.
 //
 // Changing the layout only changes these attributes: the same elements stay
-// in the page, so the dataset, frame, playback, sound settings, narration and
+// in the page, so the dataset, frame, playback, sound settings, description and
 // explore state are never reset. Each toggle keeps focus: the pressed button
 // stays (Expand ↔ Collapse and Hide ↔ Show are the same buttons).
 //

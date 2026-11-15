@@ -9,7 +9,7 @@ import { announce } from './narrator.js';
 import { createPlayer } from './player.js';
 import { installShortcuts, setSingleKeyShortcuts, singleKeyShortcutsEnabled, onSingleKeyShortcutsChange } from './shortcuts.js';
 import { createShortcutsDialog } from './shortcuts-dialog.js';
-import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
+import { createLiveDescription } from './live-description.js';
 import { createSoundSettings } from './sound-settings.js';
 import { createExplore } from './explore.js';
 import { createAlarmSetting, ALARM_DEFAULT } from './alarm-setting.js';
@@ -40,17 +40,16 @@ const state = {
 let picker = null;
 let announceTimer = null;
 
-// ---------- URL hash: #record=<id>&narration=<level>[&keys=off][&alarm=off][&left=rail][&info=wide|hidden] ----------
-// Any other parameter (e.g. an old theme=…) is ignored and dropped on the next write.
+// ---------- URL hash: #record=<id>[&keys=off][&alarm=off][&left=rail][&info=wide|hidden] ----------
+// Any other parameter (e.g. narration=… from older links, or an old theme=…)
+// is ignored and dropped on the next write.
 // The layout keys (left, info) are written only when they differ from the default.
 
 function readHash() {
   const params = new URLSearchParams(location.hash.slice(1));
   const record = params.get('record');
-  const narration = params.get('narration');
   return {
     record: record && /^[\w-]+$/.test(record) ? record : null,
-    narration: isLevel(narration) ? narration : null,
     singleKeys: params.get('keys') !== 'off', // on unless the hash says off
     alarm: params.has('alarm') ? params.get('alarm') !== 'off' : ALARM_DEFAULT,
     left: LEFT_STATES.includes(params.get('left')) ? params.get('left') : 'expanded',
@@ -61,7 +60,6 @@ function readHash() {
 function writeHash() {
   const params = new URLSearchParams();
   if (state.current) params.set('record', state.current.id);
-  params.set('narration', narration.getLevel());
   if (!singleKeyShortcutsEnabled()) params.set('keys', 'off');
   // Only when it differs from the default (on).
   if (alarmSetting && alarmSetting.isEnabled() !== ALARM_DEFAULT) params.set('alarm', alarmSetting.isEnabled() ? 'on' : 'off');
@@ -89,12 +87,13 @@ const layout = createLayout({
   },
 });
 
-// ---------- Player, narration, shortcuts ----------
+// ---------- Player, live description, shortcuts ----------
 
-const narration = createLiveNarration({
-  captionEl: document.getElementById('narration-caption'),
+// The "Live description" card: written text only, never spoken.
+const description = createLiveDescription({
+  textEl: document.getElementById('narration-caption'),
   getIndex: () => player.currentIndex(),
-  // The stub fallback has no alarm voice, so narration never mentions it there.
+  // The stub fallback has no alarm voice, so the description never mentions it there.
   canSoundAlarm: () => audio.canSoundAlarm(),
 });
 
@@ -102,7 +101,7 @@ const player = createPlayer({
   transportEl: document.getElementById('transport'),
   soundStatusEl: document.getElementById('sound-status'),
   videoStatusEl: document.getElementById('video-status'),
-  narration,
+  description,
   onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
   onUserSeek: (index) => explore.onFrameChange(index),
   onExplore: () => explore.focusMap(),
@@ -116,21 +115,16 @@ const explore = createExplore({
   cursorEl: document.getElementById('map-cursor'),
   readoutEl: document.getElementById('explore-readout'),
   player,
-  narration,
 });
 
-const soundSettings = createSoundSettings(document.getElementById('sound-settings'), {
-  level: DEFAULT_LEVEL,
-  onNarrationChange: (level) => setNarrationLevel(level),
-});
-const narrationControls = soundSettings.narrationControls;
+const soundSettings = createSoundSettings(document.getElementById('sound-settings'));
 
 // Climate alarm (Sound settings). Datasets whose preset has an alarm (co2).
 let alarmSetting = null;
 alarmSetting = createAlarmSetting({
   soundSettings,
   player,
-  narration,
+  description,
   // Names of the datasets whose preset has an alarm, e.g. "Carbon Dioxide".
   alarmDatasets: RECORDS.filter((r) => getPreset(r.id).alarm?.on).map((r) => r.shortTitle).join(' and ') || 'Carbon Dioxide',
   onChange: () => {
@@ -139,22 +133,10 @@ alarmSetting = createAlarmSetting({
   },
 });
 
-function setNarrationLevel(level, { announceIt = true } = {}) {
-  if (!isLevel(level)) return;
-  narration.setLevel(level, { announceIt });
-  narrationControls.set(level);
-  writeHash();
-}
-
 installShortcuts({
   toggle: () => player.toggle(),
   back: () => player.step(-1),
   forward: () => player.step(1),
-  cycleNarration: () => {
-    const next = LEVELS[(LEVELS.indexOf(narration.getLevel()) + 1) % LEVELS.length];
-    setNarrationLevel(next);
-  },
-  describe: () => narration.describeNow(),
   explore: () => explore.focusMap(),
   whereAmI: () => explore.whereAmI(),
   compare: () => explore.compare(),
@@ -182,10 +164,9 @@ document.addEventListener('click', (event) => {
   if (opener) shortcutsDialog.open(opener);
 });
 
-// Turning single-key shortcuts on or off: remember it and update the hint.
+// Turning single-key shortcuts on or off: remember it in the URL.
 onSingleKeyShortcutsChange(() => {
   writeHash();
-  player.refreshHelp();
 });
 
 // ---------- Selection ----------
@@ -279,7 +260,6 @@ async function init() {
 
   const fromHash = readHash();
   layout.restore(fromHash);
-  if (fromHash.narration) setNarrationLevel(fromHash.narration, { announceIt: false });
   setSingleKeyShortcuts(fromHash.singleKeys);
   if (fromHash.alarm !== alarmSetting.isEnabled()) alarmSetting.setEnabled(fromHash.alarm, { announceIt: false });
 
@@ -302,7 +282,6 @@ async function init() {
   window.addEventListener('hashchange', () => {
     const next = readHash();
     layout.restore(next, { animate: true });
-    if (next.narration && next.narration !== narration.getLevel()) setNarrationLevel(next.narration);
     setSingleKeyShortcuts(next.singleKeys);
     if (next.alarm !== alarmSetting.isEnabled()) alarmSetting.setEnabled(next.alarm);
     if (next.record && next.record !== state.current?.id) {

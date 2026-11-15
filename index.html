@@ -74,7 +74,7 @@
           <button type="button" class="overlay-btn" id="expand-btn"></button>
         </div>
         <div id="viewer" class="viewer">
-          <!-- Not a live region: all narration goes through #announcer. -->
+          <!-- Not a live region: status messages go through #announcer. -->
           <p id="viewer-status" class="viewer-status">Loading datasets…</p>
         </div>
         <!-- Frame and date under the picture (not on it). -->
@@ -96,8 +96,8 @@
           J and L change frame. Escape leaves the map.
         </p>
       </div>
-      <!-- Live narration card for sighted listeners. The caption inside is NOT a live
-           region: the hidden #announcer does the speaking. -->
+      <!-- Live description card for sighted listeners: written text only, NOT a live
+           region and never spoken (src/ui/live-description.js). -->
       <div class="narration-card">
         <span class="narration-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false">
@@ -105,12 +105,12 @@
           </svg>
         </span>
         <div class="narration-text">
-          <p class="card-label">Live narration</p>
+          <p class="card-label">Live description</p>
           <p id="narration-caption" class="narration-caption"></p>
-          <p class="card-hint">Shown as text for sighted listeners; your screen reader reads it aloud.</p>
+          <p class="card-hint">Updates as the data plays.</p>
         </div>
       </div>
-      <!-- Narration level, legend text and future sound switches. -->
+      <!-- Legend text and sound switches (climate alarm). -->
       <div id="sound-settings"></div>
       <!-- Which sound engine is running and whether the video loaded.
            Readable when navigated to; never announced. -->
@@ -148,7 +148,7 @@
   <!-- Keyboard shortcuts dialog, filled by src/ui/shortcuts-dialog.js. -->
   <dialog id="shortcuts-dialog" class="sc-dialog"></dialog>
 
-  <!-- Single polite live region for narration. Filled by src/ui/narrator.js. -->
+  <!-- Single polite live region for status messages. Filled by src/ui/narrator.js. -->
   <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
   <script type="module" src="src/ui/main.js"></script>
