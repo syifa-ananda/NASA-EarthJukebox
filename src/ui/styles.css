@@ -570,6 +570,111 @@ a:hover {
   font-size: 0.875rem;
 }
 
+/* ---------- Player grid ----------
+   The sound map comes after the transport in the DOM (so Tab goes transport →
+   map → narration settings) but sits on top of the viewer: both share row 2. */
+
+.player {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.player > * {
+  grid-column: 1;
+}
+
+.player > h2 { grid-row: 1; }
+.player > .viewer,
+.player > .sound-map { grid-row: 2; }
+.player > .narration-caption { grid-row: 3; }
+.player > .explore-readout { grid-row: 4; }
+.player > #transport { grid-row: 5; }
+.player > #narration-controls { grid-row: 6; }
+.player > .engine-status { grid-row: 7; }
+
+/* ---------- Sound map (explore mode) ---------- */
+
+.sound-map {
+  position: relative;
+  z-index: 2;
+  border-radius: calc(var(--radius) - 4px);
+  cursor: crosshair;
+  touch-action: none; /* a finger drag explores instead of scrolling */
+}
+
+.sound-map[hidden] {
+  display: none;
+}
+
+.sound-map:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* The cell under the cursor: white inner ring + black outer ring, so it shows
+   on any heatmap colour. */
+.map-cursor {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 10px;
+  min-height: 10px;
+  border: 2px solid #ffffff;
+  outline: 2px solid #000000;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  transition: left 0.08s linear, top 0.08s linear;
+}
+
+.map-cursor[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-cursor {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .map-cursor {
+    border-color: Canvas;
+    outline-color: Highlight;
+  }
+}
+
+.explore-readout {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.explore-readout.is-idle {
+  color: var(--text-muted);
+}
+
+.btn-secondary {
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+}
+
+.btn-secondary[aria-disabled="true"] {
+  color: var(--text-muted);
+  background: transparent;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
 /* ---------- Narration ---------- */
 
 /* Reserves two lines so controls below don't jump when the text changes. */

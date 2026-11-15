@@ -19,7 +19,14 @@ const NO_NARRATION = {
  *           narration?: ReturnType<import('./narration.js').createLiveNarration>,
  *           onPlayingChange?: (playing: boolean) => void }} opts
  */
-export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRATION, onPlayingChange = () => {} }) {
+export function createPlayer({
+  transportEl,
+  engineStatusEl,
+  narration = NO_NARRATION,
+  onPlayingChange = () => {},
+  onUserSeek = () => {}, // the user changed frame (timeline, J / L)
+  onExplore = () => {}, // the "Explore map" button
+}) {
   const s = {
     record: null,
     data: null,
@@ -29,6 +36,7 @@ export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRA
     speed: 1,
     loop: false,
     engineReady: false,
+    exploring: false,
     raf: 0,
     lastTs: null,
     acc: 0,
@@ -49,6 +57,7 @@ export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRA
     onLoop: (on) => {
       s.loop = on;
     },
+    onExplore: () => onExplore(),
   });
 
   audio.setVolume(DEFAULT_VOLUME / 100);
@@ -79,7 +88,7 @@ export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRA
     if (s.error) return `${s.record.title} could not load.`;
     if (!s.data) return `Loading ${s.record.title}…`;
     if (!s.engineReady) return 'Loading the sound engine…';
-    return 'Shortcuts: K plays and pauses, J and L step one frame back or forward.';
+    return 'Shortcuts: K play or pause, J and L step a frame, E explore the map, N narration level, D describe now.';
   }
 
   function refresh() {
@@ -189,13 +198,15 @@ export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRA
       });
   }
 
-  function pause() {
+  /** silent: the caller announces instead (explore mode says "Paused. Exploring …"). */
+  function pause({ silent = false } = {}) {
     s.session += 1;
     stopClock();
     narration.onStop();
     audio.pause();
     setPlaying(false);
     render();
+    if (silent) return;
     const text = frameText(s.index);
     announce(`Paused at ${text.charAt(0).toLowerCase()}${text.slice(1)}.`, { force: true });
   }
@@ -216,8 +227,10 @@ export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRA
     s.acc = 0;
     render();
     if (s.playing) audio.update(frame(), { frameSeconds: frameSeconds() });
+    else if (s.exploring) audio.update(frame()); // explore re-probes the cursor cell instead
     else schedulePreview();
     narration.onUserSeek(); // quiet while scrubbing, one summary when it stops
+    onUserSeek(s.index);
   }
 
   function schedulePreview() {
@@ -303,6 +316,10 @@ export function createPlayer({ transportEl, engineStatusEl, narration = NO_NARRA
     setData,
     toggle,
     step,
+    pause,
+    setExploring: (on) => {
+      s.exploring = !!on;
+    },
     isPlaying: () => s.playing,
     currentIndex: () => s.index,
     hasData: () => !!s.data,

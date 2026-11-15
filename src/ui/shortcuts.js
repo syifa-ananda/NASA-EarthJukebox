@@ -16,6 +16,9 @@ export const SHORTCUTS = [
   { action: 'forward', keys: ['L'], description: 'Step forward one frame' },
   { action: 'cycleNarration', keys: ['N'], description: 'Change narration: off, brief, detailed' },
   { action: 'describe', keys: ['D'], description: 'Describe the current frame in detail now' },
+  { action: 'explore', keys: ['E'], description: 'Explore the map with the sound cursor (arrow keys move, Escape leaves)' },
+  { action: 'whereAmI', keys: ['W'], description: 'Where is the sound cursor? Region, column, row and value' },
+  { action: 'compare', keys: ['C'], description: 'Compare the cursor cell with the map average' },
 ];
 
 const settings = { singleKeyShortcuts: true };
@@ -43,9 +46,11 @@ function isControl(el) {
   return !!el.closest('button, a[href], input, select, textarea, summary, [role="button"], [role="checkbox"], [role="radio"]');
 }
 
-const KEY_ACTIONS = { k: 'toggle', j: 'back', l: 'forward', n: 'cycleNarration', d: 'describe' };
+const KEY_ACTIONS = {
+  k: 'toggle', j: 'back', l: 'forward', n: 'cycleNarration', d: 'describe', e: 'explore', w: 'whereAmI', c: 'compare',
+};
 
-/** actions: { toggle(), back(), forward(), cycleNarration(), describe() } */
+/** actions: { toggle, back, forward, cycleNarration, describe, explore, whereAmI, compare } */
 export function installShortcuts(actions) {
   document.addEventListener('keydown', (event) => {
     if (!settings.singleKeyShortcuts) return;
@@ -56,7 +61,7 @@ export function installShortcuts(actions) {
     let action = KEY_ACTIONS[event.key.toLowerCase()] ?? null;
     if (event.key === ' ' && target.closest?.('#player') && !isControl(target)) action = 'toggle';
     if (!action) return;
-    // Holding a key must not flap play/pause or spin through narration levels.
+    // Holding a key must not flap play/pause, spin through levels or repeat speech.
     if (event.repeat && action !== 'back' && action !== 'forward') return;
 
     event.preventDefault();

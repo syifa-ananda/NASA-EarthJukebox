@@ -10,6 +10,7 @@ import { createPlayer } from './player.js';
 import { installShortcuts } from './shortcuts.js';
 import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
 import { renderNarrationControls } from './narration-controls.js';
+import { createExplore } from './explore.js';
 
 const nowPlaying = document.getElementById('now-playing');
 const infoBody = document.getElementById('info-body');
@@ -61,6 +62,16 @@ const player = createPlayer({
   engineStatusEl: document.getElementById('engine-status'),
   narration,
   onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
+  onUserSeek: (index) => explore.onFrameChange(index),
+  onExplore: () => explore.focusMap(),
+});
+
+const explore = createExplore({
+  mapEl: document.getElementById('sound-map'),
+  cursorEl: document.getElementById('map-cursor'),
+  readoutEl: document.getElementById('explore-readout'),
+  player,
+  narration,
 });
 
 const narrationControls = renderNarrationControls(document.getElementById('narration-controls'), {
@@ -84,6 +95,9 @@ installShortcuts({
     setNarrationLevel(next);
   },
   describe: () => narration.describeNow(),
+  explore: () => explore.focusMap(),
+  whereAmI: () => explore.whereAmI(),
+  compare: () => explore.compare(),
 });
 
 // ---------- Selection ----------
@@ -111,6 +125,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
 
   // Stops the old record's clock and sound at once; Play waits for new data.
   player.clear(record);
+  explore.setContext(record, null);
 
   writeHash();
   nowPlaying.textContent = record.title;
@@ -128,6 +143,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
     if (token !== state.loadToken) return; // a newer selection won
     state.data = data;
     player.setData(record, data); // loads the preset, shows frame 0, stays paused
+    explore.setContext(record, data);
   } catch (err) {
     if (token !== state.loadToken) return;
     console.error(err);

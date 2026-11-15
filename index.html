@@ -40,9 +40,24 @@
         <!-- Not a live region: all narration goes through #announcer. -->
         <p id="viewer-status" class="viewer-status">Loading datasets…</p>
       </div>
-      <!-- Latest narration, for sighted users. NOT a live region: #announcer speaks it. -->
+      <!-- Live description for sighted users, about once a second. NOT a live region. -->
       <p id="narration-caption" class="narration-caption"></p>
+      <!-- Explore-mode readout for sighted users. NOT a live region. -->
+      <p id="explore-readout" class="explore-readout"></p>
       <div id="transport"></div>
+      <!-- Sound map: laid over the viewer by CSS grid, but placed here in the DOM so
+           the Tab order is transport → sound map → narration settings. -->
+      <div id="sound-map" class="sound-map" tabindex="-1" hidden
+           role="group" aria-roledescription="sound map"
+           aria-label="Sound map. Use arrow keys to explore."
+           aria-describedby="sound-map-help">
+        <div class="map-cursor" id="map-cursor" aria-hidden="true" hidden></div>
+      </div>
+      <p id="sound-map-help" class="visually-hidden">
+        Arrow keys move one cell, Shift plus arrow moves 4. Home and End jump to the west and east edge,
+        Page Up and Page Down to the north and south edge. W says where you are, C compares with the average,
+        J and L change frame. Escape leaves the map.
+      </p>
       <div id="narration-controls"></div>
       <!-- Which sound engine is running. Readable when navigated to; never announced. -->
       <p id="engine-status" class="engine-status">Sound: loading…</p>

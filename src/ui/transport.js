@@ -50,6 +50,9 @@ export function createTransport(container, handlers) {
 
   const loop = h('input', { type: 'checkbox', id: 'loop' });
 
+  // Moves focus to the sound map (the next Tab stop after this button).
+  const exploreBtn = h('button', { type: 'button', id: 'explore-btn', class: 'btn-secondary' }, 'Explore map');
+
   const help = h('p', { id: 'transport-help', class: 'transport-help' }, 'Choose a record to enable Play.');
 
   container.replaceChildren(
@@ -61,6 +64,7 @@ export function createTransport(container, handlers) {
       h('div', { class: 't-group' }, h('label', { for: 'volume' }, 'Volume'), volume, volumeReadout),
       h('div', { class: 't-group' }, h('label', { for: 'speed' }, 'Playback speed'), speed),
       h('label', { class: 't-check', for: 'loop' }, loop, 'Loop'),
+      exploreBtn,
       help,
     ),
   );
@@ -75,13 +79,16 @@ export function createTransport(container, handlers) {
   });
   speed.addEventListener('change', () => handlers.onSpeed(Number(speed.value)));
   loop.addEventListener('change', () => handlers.onLoop(loop.checked));
+  exploreBtn.addEventListener('click', () => handlers.onExplore?.());
 
   return {
     /** Enable/disable Play and the timeline; helpText explains the state. */
     setEnabled(enabled, helpText) {
-      playBtn.setAttribute('aria-disabled', String(!enabled));
-      if (enabled) playBtn.removeAttribute('aria-describedby');
-      else playBtn.setAttribute('aria-describedby', 'transport-help');
+      for (const btn of [playBtn, exploreBtn]) {
+        btn.setAttribute('aria-disabled', String(!enabled));
+        if (enabled) btn.removeAttribute('aria-describedby');
+        else btn.setAttribute('aria-describedby', 'transport-help');
+      }
       scrubber.disabled = !enabled;
       help.textContent = helpText;
     },
