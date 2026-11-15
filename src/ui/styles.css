@@ -75,9 +75,14 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Both pages: a column at least as tall as the window, so the footer sits at
+   the bottom of the window even when the content is short. */
 body {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--space-black);
   color: var(--text-body);
   font-family: var(--font);
@@ -172,6 +177,7 @@ p {
 /* ---------- Header ---------- */
 
 .site-header {
+  flex: none;
   background: var(--deep-navy);
   border-bottom: 1px solid var(--border);
 }
@@ -644,11 +650,6 @@ kbd {
     min-height: 0;
   }
 
-  .page-jukebox .site-header,
-  .page-jukebox .site-footer {
-    flex: none;
-  }
-
   .page-jukebox .layout {
     flex: 1 1 auto;
     min-height: 0;
@@ -664,10 +665,6 @@ kbd {
 
   .page-jukebox .records {
     padding: 20px;
-  }
-
-  .page-jukebox .site-footer {
-    padding: 0 0 10px;
   }
 }
 
@@ -1851,12 +1848,6 @@ kbd {
   margin-top: 6px;
 }
 
-.help-note {
-  margin: 10px 0 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
 /* ---------- Keyboard shortcuts dialog ---------- */
 
 .sc-dialog {
@@ -1953,25 +1944,36 @@ kbd {
   color: var(--text-secondary);
 }
 
-.sc-tip {
-  margin: 12px 0 0;
-  padding: 8px 12px;
-  font-size: 14px;
-  background: var(--slate);
-  border-left: 3px solid var(--cyan);
-  border-radius: 0 8px 8px 0;
-}
-
 /* ---------- Footer ---------- */
 
+/* The page's main content takes the space between header and footer. */
+body > main {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+/* The header, mirrored: full width, same side padding as .header-inner, so
+   the text lines up with the logo. Last row under the panels on the wide
+   jukebox; end of the page elsewhere. */
 .site-footer {
-  padding: 16px 20px 24px;
+  flex: none;
+  padding: 14px 40px;
   font-size: 13px;
   color: var(--text-muted);
+  background: var(--deep-navy);
+  border-top: 1px solid var(--border);
 }
 
 .site-footer p {
   margin: 0;
+}
+
+.site-footer a {
+  color: var(--cyan);
+}
+
+.site-footer a:hover {
+  color: var(--text-heading);
 }
 
 /* ---------- Phones ---------- */
@@ -1979,6 +1981,10 @@ kbd {
 @media (max-width: 719.98px) {
   .header-inner {
     padding: 12px 16px;
+  }
+
+  .site-footer {
+    padding: 14px 16px;
   }
 
   .site-title {
@@ -2117,5 +2123,13 @@ kbd {
   .map-cursor {
     border-color: Canvas;
     outline-color: Highlight;
+  }
+
+  .site-footer {
+    border-top-color: CanvasText;
+  }
+
+  .site-footer a {
+    color: LinkText;
   }
 }

@@ -47,10 +47,6 @@ export const MAP_KEYS = [
   { keys: ['Escape'], description: 'Leave the sound map and go back to Play', mac: null },
 ];
 
-export const VOICEOVER_TIP =
-  'With VoiceOver, turn Quick Nav off first (press Left arrow and Right arrow together), ' +
-  'so the arrow keys reach the sound map.';
-
 const settings = { singleKeyShortcuts: true };
 const listeners = new Set();
 

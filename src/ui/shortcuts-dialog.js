@@ -5,7 +5,7 @@
 
 import { h } from './dom.js';
 import {
-  SHORTCUTS, SHORTCUT_GROUPS, MAP_KEYS, VOICEOVER_TIP,
+  SHORTCUTS, SHORTCUT_GROUPS, MAP_KEYS,
   singleKeyShortcutsEnabled, setSingleKeyShortcuts, onSingleKeyShortcutsChange,
 } from './shortcuts.js';
 
@@ -56,7 +56,6 @@ export function createShortcutsDialog(dialog) {
     h('p', { class: 'sc-intro' }, 'Single keys work anywhere on the page, except while you type, use a menu or move a slider.'),
     SHORTCUT_GROUPS.map((g) => groupTable(`sc-${g.id}`, g.title, SHORTCUTS.filter((s) => s.group === g.id))),
     groupTable('sc-map', 'Inside the sound map', MAP_KEYS),
-    h('p', { class: 'sc-tip' }, h('strong', {}, 'VoiceOver: '), VOICEOVER_TIP),
   );
 
   dialog.replaceChildren(
@@ -68,8 +67,7 @@ export function createShortcutsDialog(dialog) {
       h(
         'p',
         { id: 'single-keys-help', class: 'setting-help' },
-        'Turn off if single letters clash with your screen reader or voice control. ',
-        'The Keyboard shortcuts button still opens this list, and Space still plays on the player panel.',
+        'Turn off if single-letter keys get in your way. The Keyboard shortcuts button still opens this list.',
       ),
     ),
     body,
