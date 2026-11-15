@@ -71,21 +71,23 @@ export function createSoundSettings(container, { level, onNarrationChange }) {
       setEnabled(!!(record && data));
     },
     /**
-     * Add an on/off switch to the group (e.g. the climate alarm). Returns the
-     * checkbox. onChange(checked) runs on every change.
+     * Add an on/off switch to the group (e.g. the climate alarm), with optional
+     * extra controls on the same row (e.g. a "Hear the alarm" button).
+     * onChange(checked) runs on every change. Returns { input, help }.
      */
-    addSwitch({ id, label, description, onChange }) {
-      const input = h('input', { type: 'checkbox', id, 'aria-describedby': description ? `${id}-desc` : null });
+    addSwitch({ id, label, description, checked = false, onChange, extra = [] }) {
+      const input = h('input', { type: 'checkbox', id, checked, 'aria-describedby': description ? `${id}-desc` : null });
       input.addEventListener('change', () => onChange(input.checked));
+      const help = description ? h('p', { id: `${id}-desc`, class: 'setting-help setting-switch-help' }, description) : null;
       switches.append(
         h(
           'div',
-          { class: 'setting-row' },
-          h('label', { class: 't-check', for: id }, input, label),
-          description && h('p', { id: `${id}-desc`, class: 'setting-help' }, description),
+          { class: 'setting-switch' },
+          h('div', { class: 'setting-row' }, h('label', { class: 't-check', for: id }, input, label), extra),
+          help,
         ),
       );
-      return input;
+      return { input, help };
     },
   };
 }

@@ -49,6 +49,7 @@ export function createPlayer({
   onUserSeek = () => {}, // the user changed frame (timeline, J / L)
   onExplore = () => {}, // the "Explore" button
   onLegend = () => {}, // the "Audio legend" button
+  playNote = () => '', // extra words for the "Playing …" announcement
 }) {
   const s = {
     record: null,
@@ -325,7 +326,7 @@ export function createPlayer({
     }
     setPlaying(true);
     render();
-    announce(`Playing ${s.record.title}.`, { force: true });
+    announce(`Playing ${s.record.title}.${playNote()}`, { force: true });
     narration.onPlay();
 
     const fail = (err) => {

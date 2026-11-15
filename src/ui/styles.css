@@ -979,6 +979,21 @@ kbd {
   font-size: 0.875rem;
 }
 
+/* Switches added with addSwitch() (climate alarm): checkbox + button, help below. */
+.setting-switch {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.setting-switch .setting-row {
+  margin-top: 0;
+}
+
+.setting-switch-help {
+  margin-top: 0.15rem;
+}
+
 .legend-text {
   margin: 0.5rem 0 0;
   padding: 0.4rem 0.7rem;

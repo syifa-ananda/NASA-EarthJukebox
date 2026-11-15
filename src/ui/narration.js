@@ -17,7 +17,8 @@
 // narration keeps working when the audio engine falls back to the stub.
 
 import { describeFrame as describeSound } from '../audio/engine/describe.js';
-import { analyzeRanges } from '../audio/engine/normalize.js';
+import { analyzeRanges, normalizeFrame } from '../audio/engine/normalize.js';
+import { sanitizeFrame, withDerived, alarmState } from '../audio/engine/mapping.js';
 import { getPreset } from '../audio/presets/index.js';
 import { whereHighest } from './describe.js';
 import { announce, msUntilNarrationAllowed } from './narrator.js';
@@ -53,6 +54,33 @@ export function rangesFor(record, data) {
     rangesCache.set(data, analyzeRanges(data, { derive: preset.derive, minSpan: preset.normalize?.minSpan }));
   }
   return rangesCache.get(data);
+}
+
+// ---------- climate alarm (co2): when it sounds, frame by frame ----------
+
+const alarmCache = new WeakMap();
+
+/**
+ * Whether the climate alarm sounds at each frame when the file plays through,
+ * with the engine's own rule and hysteresis (mapping.js alarmState): on at the
+ * preset's threshold, off only below threshold − hysteresis. All false for
+ * presets without an alarm.
+ */
+export function alarmFrames(record, data) {
+  if (!alarmCache.has(data)) {
+    const preset = getPreset(record.id);
+    const ranges = rangesFor(record, data);
+    let on = false;
+    alarmCache.set(
+      data,
+      data.frames.map((frame) => {
+        const f = normalizeFrame(withDerived(sanitizeFrame(frame), preset), ranges);
+        on = alarmState(f, preset.alarm, on);
+        return on;
+      }),
+    );
+  }
+  return alarmCache.get(data);
 }
 
 // ---------- time words (config/datasets.js → time, from docs/sources.md) ----------
@@ -114,9 +142,13 @@ export function isQuiet(record, data, index) {
 
 // ---------- wording ----------
 
-/** Person 2's sentence for frame `index`, with the dataset's ranges. */
-function soundSentence(record, data, index, prev) {
-  return describeSound(data.frames[index], getPreset(record.id), prev, rangesFor(record, data));
+/**
+ * Person 2's sentence for frame `index`, with the dataset's ranges. With
+ * alarm: true it ends with the preset's alarm words ("alarm: highest carbon
+ * dioxide in view"); otherwise they are left out.
+ */
+function soundSentence(record, data, index, prev, alarm = false) {
+  return describeSound(data.frames[index], getPreset(record.id), prev, rangesFor(record, data), { alarm });
 }
 
 /** Where the highest values are, in words that fit the grid kind. */
@@ -135,10 +167,12 @@ function detailedTime(record, data, index) {
  * Text for one narration. level: 'brief' | 'detailed'.
  * `prev` is the frame the pitch trend is measured against ("rising pitch"):
  * spoken narration passes the last frame it actually spoke.
+ * alarm: include the alarm words (the caller decides: only while the alarm is
+ * on and sounding, and only once per alarm stretch when spoken).
  */
-export function describeForNarration(record, data, index, level, prev = previousFrame(data, index)) {
+export function describeForNarration(record, data, index, level, prev = previousFrame(data, index), { alarm = false } = {}) {
   if (isQuiet(record, data, index)) return `Now: ${record.quiet.text}.`;
-  const sound = soundSentence(record, data, index, prev);
+  const sound = soundSentence(record, data, index, prev, alarm);
   if (level !== 'detailed') return `Now: ${sound}.`;
   const when = detailedTime(record, data, index);
   const where = whereWords(record, data, index);
@@ -152,14 +186,16 @@ export function describeForNarration(record, data, index, level, prev = previous
  * What a listener would notice. Narration only speaks when this differs from
  * the last narration: Person 2's sentence (level, pitch trend, pan, year or
  * region prefix, storm bursts appearing, fast change) with exact counts
- * ignored, the "where" sentence in Detailed, and quiet stretches. Tune here.
+ * ignored, the "where" sentence in Detailed, quiet stretches, and the climate
+ * alarm starting or stopping (alarm: whether it sounds now). Tune here.
  */
-export function narrationSignature(record, data, index, level, prev = previousFrame(data, index)) {
+export function narrationSignature(record, data, index, level, prev = previousFrame(data, index), { alarm = false } = {}) {
   if (isQuiet(record, data, index)) return { quiet: true };
   return {
     quiet: false,
     sentence: soundSentence(record, data, index, prev).replace(/\b\d+ /g, '# '),
     where: level === 'detailed' ? whereWords(record, data, index) : null,
+    alarm: !!alarm,
   };
 }
 
@@ -179,10 +215,17 @@ export function hasMeaningfulChange(before, after) {
  * Caption (visible, not a live region): brief wording for the current frame,
  * about once a second while playing and at once on seek / pause.
  *
- * @param {{ captionEl: HTMLElement, getIndex: () => number }} opts
+ * Climate alarm: the spoken narration says the alarm words once when an alarm
+ * stretch starts (it counts as a meaningful change), not again while it keeps
+ * sounding; never when the alarm is switched off or can't be heard (stub).
+ * The visible caption shows them for as long as the alarm sounds.
+ *
+ * @param {{ captionEl: HTMLElement, getIndex: () => number, canSoundAlarm?: () => boolean }} opts
  */
-export function createLiveNarration({ captionEl, getIndex }) {
+export function createLiveNarration({ captionEl, getIndex, canSoundAlarm = () => true }) {
   let level = DEFAULT_LEVEL;
+  let alarmEnabled = true;
+  let alarmTold = false; // the alarm words were spoken in the current alarm stretch
   let ctx = null; // { record, data }
   let playing = false;
   let exploring = false;
@@ -192,12 +235,15 @@ export function createLiveNarration({ captionEl, getIndex }) {
   let lastSpokenFrame = null;
   let settleTimer = 0;
   let retryTimer = 0;
+  let windowTimer = 0; // re-check when the throttle window reopens
   let captionAt = -Infinity;
   let captionIndex = null;
 
   function cancelTimers() {
     clearTimeout(settleTimer);
     clearTimeout(retryTimer);
+    clearTimeout(windowTimer);
+    windowTimer = 0;
     scrubbing = false;
   }
 
@@ -216,7 +262,7 @@ export function createLiveNarration({ captionEl, getIndex }) {
     if (force && index === captionIndex) return;
     // Trend against the frame the caption showed last (about a second ago).
     const prev = captionIndex !== null && captionIndex !== index ? ctx.data.frames[captionIndex] : previousFrame(ctx.data, index);
-    const text = describeForNarration(ctx.record, ctx.data, index, 'brief', prev);
+    const text = describeForNarration(ctx.record, ctx.data, index, 'brief', prev, { alarm: alarmNow(index) });
     captionAt = now;
     captionIndex = index;
     if (captionEl.textContent === text) return;
@@ -230,14 +276,50 @@ export function createLiveNarration({ captionEl, getIndex }) {
 
   const trendBase = (index) => lastSpokenFrame ?? previousFrame(ctx.data, index);
 
-  function speak(index, { priority = 'narration', force = false, textLevel = level } = {}) {
+  /** The alarm sounds at this frame (switched on, audible, data at its top). */
+  function alarmNow(index) {
+    return alarmEnabled && canSoundAlarm() && !!ctx && alarmFrames(ctx.record, ctx.data)[index];
+  }
+
+  /** Outside an alarm stretch, the next stretch gets its words again. */
+  function trackAlarm(index) {
+    if (!alarmNow(index)) alarmTold = false;
+  }
+
+  function speak(index, { priority = 'narration', force = false, textLevel = level, alarmAgain = false } = {}) {
     const prev = trendBase(index);
-    const text = describeForNarration(ctx.record, ctx.data, index, textLevel, prev);
+    const sounding = alarmNow(index);
+    const sayAlarm = sounding && (alarmAgain || !alarmTold);
+    const text = describeForNarration(ctx.record, ctx.data, index, textLevel, prev, { alarm: sayAlarm });
     if (!announce(text, { priority, force })) return false;
     lastAt = performance.now();
-    lastSig = narrationSignature(ctx.record, ctx.data, index, level, prev);
+    lastSig = narrationSignature(ctx.record, ctx.data, index, level, prev, { alarm: sounding });
     lastSpokenFrame = ctx.data.frames[index];
+    if (sayAlarm) alarmTold = true;
     return true;
+  }
+
+  /**
+   * Speak if something meaningful changed and the throttle window is open.
+   * If it changed but the window is still closed, look again the moment it
+   * reopens (not only at the next frame), so short moments such as a 2.5 s
+   * alarm stretch aren't missed.
+   */
+  function checkNarration(index) {
+    if (!playing || level === 'off' || scrubbing || !ctx) return;
+    const sig = narrationSignature(ctx.record, ctx.data, index, level, trendBase(index), { alarm: alarmNow(index) });
+    if (!hasMeaningfulChange(lastSig, sig)) return;
+    const wait = Math.max(intervalFor(level) - (performance.now() - lastAt), msUntilNarrationAllowed());
+    if (wait > 0) {
+      if (!windowTimer) {
+        windowTimer = setTimeout(() => {
+          windowTimer = 0;
+          checkNarration(getIndex());
+        }, wait + 20);
+      }
+      return;
+    }
+    speak(index);
   }
 
   /** Scrub summary: once, after the guard window if a status message just played. */
@@ -264,10 +346,22 @@ export function createLiveNarration({ captionEl, getIndex }) {
       if (announceIt) announce(`Narration: ${LEVEL_LABELS[level].toLowerCase()}`, { force: true });
     },
 
+    /** Climate alarm switched on or off: the words follow (never when off). */
+    setAlarmEnabled(on) {
+      alarmEnabled = !!on;
+      alarmTold = false;
+      lastSig = null;
+      if (ctx) {
+        captionIndex = null; // refresh the caption with or without the alarm words
+        updateCaption(getIndex(), { force: true });
+      }
+    },
+
     /** New record (data = null while it loads). */
     setContext(record, data) {
       cancelTimers();
       playing = false;
+      alarmTold = false;
       ctx = record && data ? { record, data } : null;
       lastSig = null;
       lastSpokenFrame = null;
@@ -298,17 +392,15 @@ export function createLiveNarration({ captionEl, getIndex }) {
     /** Every frame the clock advances to while playing. */
     onFrame(index) {
       if (!ctx) return;
+      trackAlarm(index);
       updateCaption(index);
-      if (!playing || level === 'off' || scrubbing) return;
-      if (performance.now() - lastAt < intervalFor(level)) return;
-      const sig = narrationSignature(ctx.record, ctx.data, index, level, trendBase(index));
-      if (!hasMeaningfulChange(lastSig, sig)) return;
-      speak(index);
+      checkNarration(index);
     },
 
     /** The user moved the timeline or pressed J / L. */
     onUserSeek() {
       if (!ctx) return;
+      trackAlarm(getIndex());
       updateCaption(getIndex(), { force: true });
       if (exploring) return;
       scrubbing = true;
@@ -327,7 +419,8 @@ export function createLiveNarration({ captionEl, getIndex }) {
         return;
       }
       clearTimeout(retryTimer);
-      speak(getIndex(), { priority: 'status', force: true, textLevel: 'detailed' });
+      // Asked for explicitly, so it includes the alarm words whenever the alarm sounds.
+      speak(getIndex(), { priority: 'status', force: true, textLevel: 'detailed', alarmAgain: true });
     },
   };
 }

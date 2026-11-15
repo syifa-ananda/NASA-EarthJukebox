@@ -1,7 +1,7 @@
 // Entry point for the Earth Information Jukebox UI.
 
 import { loadIndex, loadFeatures } from './adapters/data.js';
-import { mergeRecords, statusLabel } from './config/datasets.js';
+import { mergeRecords, statusLabel, RECORDS } from './config/datasets.js';
 import { renderRecordList } from './records.js';
 import { renderInfo } from './info.js';
 import * as viewer from './viewer.js';
@@ -12,6 +12,9 @@ import { createShortcutsDialog } from './shortcuts-dialog.js';
 import { createLiveNarration, DEFAULT_LEVEL, LEVELS, isLevel } from './narration.js';
 import { createSoundSettings } from './sound-settings.js';
 import { createExplore } from './explore.js';
+import { createAlarmSetting, ALARM_DEFAULT } from './alarm-setting.js';
+import * as audio from './adapters/audio.js';
+import { getPreset } from '../audio/presets/index.js';
 
 const nowPlaying = document.getElementById('now-playing');
 const infoBody = document.getElementById('info-body');
@@ -31,7 +34,7 @@ const state = {
 let picker = null;
 let announceTimer = null;
 
-// ---------- URL hash: #record=<id>&narration=<level>[&keys=off] ----------
+// ---------- URL hash: #record=<id>&narration=<level>[&keys=off][&alarm=off] ----------
 // Any other parameter (e.g. an old theme=…) is ignored and dropped on the next write.
 
 function readHash() {
@@ -42,6 +45,7 @@ function readHash() {
     record: record && /^[\w-]+$/.test(record) ? record : null,
     narration: isLevel(narration) ? narration : null,
     singleKeys: params.get('keys') !== 'off', // on unless the hash says off
+    alarm: params.has('alarm') ? params.get('alarm') !== 'off' : ALARM_DEFAULT,
   };
 }
 
@@ -50,6 +54,8 @@ function writeHash() {
   if (state.current) params.set('record', state.current.id);
   params.set('narration', narration.getLevel());
   if (!singleKeyShortcutsEnabled()) params.set('keys', 'off');
+  // Only when it differs from the default (on).
+  if (alarmSetting && alarmSetting.isEnabled() !== ALARM_DEFAULT) params.set('alarm', alarmSetting.isEnabled() ? 'on' : 'off');
   // replaceState: no history entry per arrow press, and no hashchange event.
   history.replaceState(null, '', `#${params}`);
 }
@@ -59,6 +65,8 @@ function writeHash() {
 const narration = createLiveNarration({
   captionEl: document.getElementById('narration-caption'),
   getIndex: () => player.currentIndex(),
+  // The stub fallback has no alarm voice, so narration never mentions it there.
+  canSoundAlarm: () => audio.canSoundAlarm(),
 });
 
 const player = createPlayer({
@@ -70,6 +78,8 @@ const player = createPlayer({
   onUserSeek: (index) => explore.onFrameChange(index),
   onExplore: () => explore.focusMap(),
   onLegend: () => soundSettings.playLegend(),
+  // The engine can't stop an alarm example early (no API yet), so say so.
+  playNote: () => (alarmSetting?.previewRemaining() > 0 ? ' The music joins when the alarm example ends.' : ''),
 });
 
 const explore = createExplore({
@@ -85,6 +95,20 @@ const soundSettings = createSoundSettings(document.getElementById('sound-setting
   onNarrationChange: (level) => setNarrationLevel(level),
 });
 const narrationControls = soundSettings.narrationControls;
+
+// Climate alarm (Sound settings). Datasets whose preset has an alarm (co2).
+let alarmSetting = null;
+alarmSetting = createAlarmSetting({
+  soundSettings,
+  player,
+  narration,
+  // Names of the datasets whose preset has an alarm, e.g. "Carbon Dioxide".
+  alarmDatasets: RECORDS.filter((r) => getPreset(r.id).alarm?.on).map((r) => r.shortTitle).join(' and ') || 'Carbon Dioxide',
+  onChange: () => {
+    writeHash();
+    if (state.current) renderInfo(infoBody, state.current, { alarm: alarmSetting.isEnabled() });
+  },
+});
 
 function setNarrationLevel(level, { announceIt = true } = {}) {
   if (!isLevel(level)) return;
@@ -152,7 +176,8 @@ async function selectRecord(id, { announceIt = true } = {}) {
 
   writeHash();
   nowPlaying.textContent = record.title;
-  renderInfo(infoBody, record);
+  renderInfo(infoBody, record, { alarm: alarmSetting.isEnabled() });
+  alarmSetting.setContext(record, null);
   if (announceIt) scheduleAnnouncement(record);
 
   viewer.showLoading(record);
@@ -163,6 +188,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
     player.setData(record, data); // loads the preset, shows frame 0, stays paused
     explore.setContext(record, data);
     soundSettings.setContext(record, data);
+    alarmSetting.setContext(record, data);
   } catch (err) {
     if (token !== state.loadToken) return;
     console.error(err);
@@ -197,6 +223,7 @@ async function init() {
   const fromHash = readHash();
   if (fromHash.narration) setNarrationLevel(fromHash.narration, { announceIt: false });
   setSingleKeyShortcuts(fromHash.singleKeys);
+  if (fromHash.alarm !== alarmSetting.isEnabled()) alarmSetting.setEnabled(fromHash.alarm, { announceIt: false });
 
   let entries;
   try {
@@ -218,6 +245,7 @@ async function init() {
     const next = readHash();
     if (next.narration && next.narration !== narration.getLevel()) setNarrationLevel(next.narration);
     setSingleKeyShortcuts(next.singleKeys);
+    if (next.alarm !== alarmSetting.isEnabled()) alarmSetting.setEnabled(next.alarm);
     if (next.record && next.record !== state.current?.id) {
       picker.check(next.record);
       selectRecord(next.record);

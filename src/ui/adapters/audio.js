@@ -24,6 +24,10 @@
 //   setVolume(v) 0–1, setRate(r)
 //   probe(x, y)                   { x, y, value, pan, empty, label, level, midi, note, sounded }
 //   playLegend()                  { text, duration, sounded }
+//   setAlarmEnabled(on), isAlarmEnabled()   Climate alarm on/off (engine default: on)
+//   previewAlarm({ seconds })     { text, seconds, sounded }: the alarm on its own, ~10 s.
+//                                 No way to stop it early in the engine yet.
+//   canSoundAlarm()               false on the stub fallback (it has no alarm voice)
 //
 // Still missing from the engine (see CONTRACT): previewFrame, setRate and a
 // fast-fade stop. preview() plays one probe() note instead, setRate is a no-op
@@ -44,6 +48,7 @@ let volume = 0.7;
 let currentFile = null;
 let lastFrame = null;
 let sync = null; // { video, file, opts, detach }
+let alarmEnabled = true; // engine default (CONTRACT.md §5)
 const listeners = new Set();
 
 function setStatus(next) {
@@ -92,6 +97,7 @@ function engineImpl(m) {
     probe: (x, y) => m.probe(x, y),
     stop: () => m.pause(),
     playLegend: () => m.playLegend(),
+    previewAlarm: (opts) => m.previewAlarm(opts),
     syncToVideo: (video, file, opts) => m.syncToVideo(video, file, opts),
   };
 }
@@ -107,7 +113,12 @@ const stubImpl = {
   setVolume: (v) => stub.setVolume(v),
   probe: (x, y) => stub.probe(x, y),
   stop: () => stub.stop(),
-  playLegend: () => stub.playLegend({ text: currentFile ? legendText(getPreset(currentFile.dataset)) : '' }),
+  playLegend: () =>
+    stub.playLegend({
+      text: currentFile ? legendText(getPreset(currentFile.dataset, { alarm: alarmEnabled }), { alarm: alarmEnabled }) : '',
+    }),
+  // The fallback has no alarm voice.
+  previewAlarm: () => ({ text: 'The climate alarm example needs the full sound engine, which could not start.', seconds: 0, sounded: false }),
   syncToVideo: (video, file, opts) => stub.syncToVideo(video, file, opts),
 };
 
@@ -134,6 +145,7 @@ const ready = import(ENGINE_URL)
   .then((m) => {
     engine = m;
     impl = engineImpl(m);
+    m.setAlarmEnabled(alarmEnabled);
     setStatus('tone-idle');
   })
   .catch((err) => {
@@ -245,3 +257,13 @@ export const setRate = () => {}; // speed is the video's playbackRate / the UI c
 export const probe = (...a) => call('probe', a);
 export const stop = (...a) => call('stop', a);
 export const playLegend = (...a) => call('playLegend', a);
+export const previewAlarm = (...a) => call('previewAlarm', a);
+
+/** Climate alarm on/off. Works before audio starts. */
+export function setAlarmEnabled(on) {
+  alarmEnabled = !!on;
+  engine?.setAlarmEnabled(alarmEnabled);
+}
+export const isAlarmEnabled = () => alarmEnabled;
+/** Whether the alarm can be heard at all (not on the stub fallback). */
+export const canSoundAlarm = () => impl !== stubImpl;
