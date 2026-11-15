@@ -1,0 +1,268 @@
+// UI-only catalogue of jukebox records. Add, remove or reorder records here.
+//
+// This file never replaces public/data/index.json (Person 1's manifest).
+// At load time mergeRecords() combines the two:
+//   - Only datasets listed in index.json are shown. An entry here that is not
+//     in index.json is ignored, so UI settings can be prepared ahead of the data.
+//   - index.json wins for title, description, colorMeaning, source, credit.
+//   - A dataset in index.json with no entry here still appears, with neutral
+//     defaults (screen-grid place words, no dates), so new data shows up at once.
+//
+// Fields:
+//   id           folder / manifest id
+//   shortTitle   compact title for the record card
+//   title        fallback full title (index.json's title wins)
+//   soundHint    one line on how it sounds
+//   accent       decorative colour for the record label. Chosen to reach at
+//                least 3:1 against every panel background in both themes.
+//                It is never used for text and never carries meaning alone.
+//   legend       { stops: [low → high colours], low, high } for the heatmap
+//                fallback and the legend bar; null if the colour key is unknown
+//   summary      { subject, high, preposition? } wording for "where is it highest"
+//                sentences, e.g. "Brightest lights over Japan" (preposition defaults to 'over')
+//   gridKind     'world-map': the 32 × 16 grid is a whole-world flat map, so
+//                explore mode names regions (src/ui/regions.js).
+//                'screen': the grid covers the picture, not the Earth (co2's
+//                turning globe), so only picture positions are used.
+//   westLon      world maps only: longitude of the grid's left edge (default −180)
+//   dataOn       world maps only: 'water' | 'land' | 'any', where the values live,
+//                so coastal cells can be named "Coast near …" (see regions.js)
+//   aspect       width / height of the video (docs/sources.md); used until the
+//                video's own size is known, and for the heatmap fallback
+//   time         what a frame means in time, for the timeline and narration.
+//                Taken from docs/sources.md; frames are spread evenly between
+//                start and end. null = no dates (lightning has none on purpose).
+//                  { kind: 'yearBlocks', startYear, framesPerYear }
+//                  { kind: 'dates', start, end, precision: 'month' | 'day' }
+//   valueUnit    optional { scale, unit, round }: grid value × scale = a real
+//                quantity (sst: value = °C / 32, docs/data-contract.md §4)
+//   quiet        optional { field, frames, text }: when `field` is 0 for this
+//                many frames in a row, narration says `text` once and waits
+//   emptyLabel   optional: what an empty grid cell (value 0) means, for explore.
+//                Wins over the engine's probe label when set.
+//   outside      optional { rows, label }: grid rows the instrument can't see at
+//                all; explore reads their (always 0) cells with `label`
+//   keepClear    optional { left, top, right, bottom } (fractions of the picture):
+//                part of the video that UI overlays must not cover (co2 date label)
+//   valueUnit.bands  optional [{ min, words }], highest min first: a short plain
+//                descriptor after the number ("about 28 °C, warm tropical water")
+//   sounds       visual→sound mappings ({ from, to, detail }) for the info panel,
+//                kept in line with src/audio/CONTRACT.md §6 and src/audio/presets/<id>.js.
+
+export const RECORDS = [
+  {
+    id: 'sst',
+    shortTitle: 'Sea Surface Temperature',
+    title: 'Global Sea Surface Currents and Temperature',
+    soundHint: 'Flowing pads whose melody follows the seasons',
+    accent: '#d9480f',
+    legend: {
+      // The SVS colorbar: blue 0 °C → green → yellow → red 32 °C.
+      stops: ['#1b3a9e', '#1f7fd1', '#27b0b0', '#3fb34f', '#d8d33a', '#f08c1e', '#d7191c'],
+      low: 'Cold, 0 °C',
+      high: 'Hot, 32 °C',
+    },
+    // 'near': the warmest cells are often coastal cells named after the land (Persian Gulf → Middle East).
+    summary: { subject: 'sea surface temperature', high: 'Warmest water', preposition: 'near' },
+    gridKind: 'world-map',
+    dataOn: 'water',
+    westLon: -180,
+    aspect: 640 / 320,
+    // docs/sources.md → sst → "Data dates: 2007-03-25 to 2008-03-03".
+    time: { kind: 'dates', start: '2007-03-25', end: '2008-03-03', precision: 'month' },
+    // docs/data-contract.md §4: value = temperature / 32 °C.
+    valueUnit: {
+      scale: 32,
+      unit: '°C',
+      round: 1,
+      // Person 1's wording tips: ≥ 25 °C warm tropical, 10–25 °C mild, < 10 °C cold.
+      bands: [
+        { min: 25, words: 'warm tropical water' },
+        { min: 10, words: 'mild water' },
+        { min: -Infinity, words: 'cold water' },
+      ],
+    },
+    sounds: [
+      { from: 'The seasons', to: 'melody', detail: 'The melody climbs as the northern oceans warm toward the northern summer, is highest around August and September, and sinks again as the southern oceans warm.' },
+      { from: 'Change in the currents', to: 'pad swells', detail: 'When the currents change faster, the pads swell louder and the tempo lifts a little.' },
+      { from: 'Brightness', to: 'loudness and tone', detail: 'A brighter picture sounds louder and more open.' },
+      { from: 'Warm water on the map', to: 'number of notes', detail: 'More warm ocean adds chord notes and soft bells on top.' },
+      { from: 'Where the activity is', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
+      { from: 'Explore mode', to: 'notes and ticks', detail: 'Warmer water plays higher notes; land plays a soft tick.' },
+    ],
+  },
+  {
+    id: 'nightlights',
+    shortTitle: 'Night Lights',
+    title: 'Change in Night Lights 2012–2023',
+    soundHint: 'Bells that multiply year by year as cities grow',
+    accent: '#a87a00',
+    legend: {
+      stops: ['#000000', '#2b2100', '#7a5c00', '#e0b000', '#fff2a8', '#ffffff'],
+      low: 'Dark, no lights',
+      high: 'Bright city lights',
+    },
+    summary: { subject: 'night lights', high: 'Brightest lights' },
+    gridKind: 'world-map',
+    dataOn: 'land',
+    // docs/sources.md → nightlights: "column 0 starts at about 168° W".
+    westLon: -168,
+    aspect: 1280 / 720,
+    // docs/data-contract.md §4: frames 5k to 5k+4 belong to year 2012 + k.
+    time: { kind: 'yearBlocks', startYear: 2012, framesPerYear: 5 },
+    sounds: [
+      { from: 'Amount of light', to: 'loudness and number of bells', detail: 'The more light on the map, the louder and brighter the music and the more bells ring, so it fills in from 2012 to 2023.' },
+      { from: 'Light level', to: 'pitch', detail: 'More light plays higher notes. It dips a little in 2020 and climbs most in 2022 and 2023.' },
+      { from: 'A new year', to: 'low chime', detail: 'A low chime marks the start of each year.' },
+      { from: 'Lit area', to: 'harmony', detail: 'More lit land adds notes to the quiet pad underneath.' },
+      { from: 'Where the lights are', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
+    ],
+  },
+  {
+    id: 'lightning',
+    shortTitle: 'Lightning from the ISS',
+    title: 'Lightning Events Detected from the ISS 2017–2023',
+    soundHint: 'A thunder thump for every storm burst',
+    accent: '#3b7dd8',
+    legend: {
+      stops: ['#000000', '#2b2a10', '#6e6a12', '#c9c21a', '#ffef3a', '#fffbb0'],
+      low: 'No lightning',
+      high: 'Lightning (yellow dots)',
+    },
+    summary: { subject: 'lightning activity', high: 'Most lightning' },
+    gridKind: 'world-map',
+    dataOn: 'any', // lightning strikes over land and sea
+    westLon: -180,
+    aspect: 1440 / 720,
+    // docs/sources.md → lightning: "The video has no date labels, so we do not
+    // assign dates to frames." The timeline says "frame N of 200" instead.
+    time: null,
+    // The first ~13 s and the last ~20 s have no storm bursts (docs/data-contract.md §4).
+    // Mid-video gaps are at most 2 frames, so 4 frames = a real quiet stretch.
+    quiet: { field: 'flashes', frames: 4, text: 'no lightning right now' },
+    // Rows 0–2 and 13–15 are beyond about ±52°, which the ISS can't see (Person 1).
+    outside: { rows: [0, 1, 2, 13, 14, 15], label: "outside the space station's view" },
+    sounds: [
+      { from: 'Storm bursts', to: 'thunder and crackle', detail: 'Each storm bursting on the map is a deep thunder thump with a crackle on top. Busy moments sound like a drum roll.' },
+      { from: 'Where the storm bursts', to: 'left or right', detail: 'Each hit is placed where the storm bursts: west in your left ear, east in your right.' },
+      { from: 'Lightning activity', to: 'pad', detail: 'A quiet minor-key pad grows louder and higher once a year, when storms spread across the north in the northern summer.' },
+      { from: 'Change between frames', to: 'trembling and tempo', detail: 'When storms move fast, the pad trembles and the tempo speeds up.' },
+      { from: 'Start and end', to: 'quiet', detail: 'The start and the last twenty seconds are quiet, while the video fades in and out.' },
+    ],
+  },
+  {
+    id: 'co2',
+    shortTitle: 'Carbon Dioxide',
+    title: 'DYAMOND Global Carbon Dioxide',
+    soundHint: 'A low drone that thickens over East Asia and the Amazon',
+    accent: '#b14fc5',
+    legend: {
+      // Colorbar: faint grey/white haze for lower amounts, then tan → orange → red (highest).
+      stops: ['#000000', '#4a4a4a', '#d8d2c4', '#d9a066', '#f07a1a', '#c81e1e'],
+      low: 'Faint haze: lower',
+      high: 'Red: highest',
+    },
+    summary: { subject: 'carbon dioxide in view', high: 'Most carbon dioxide in view' },
+    // docs/data-contract.md §2: a screen grid on a turning globe, not a map.
+    gridKind: 'screen',
+    // Person 1: empty cells include both the globe's low-CO2 areas and the black
+    // background, so never say "space" or "outside the Earth".
+    emptyLabel: 'low or no carbon dioxide here',
+    // The video's own date label (docs/sources.md: x 1520–1910, y 1005–1055 of
+    // 1920 × 1080), as fractions of the picture. Nothing of ours may cover it.
+    keepClear: { left: 0.79, top: 0.93, right: 1, bottom: 0.98 },
+    aspect: 1280 / 720,
+    // docs/sources.md → co2: date label "14 Jan 2020 22:00" to "03 Mar 2020 08:00".
+    time: { kind: 'dates', start: '2020-01-14T22:00', end: '2020-03-03T08:00', precision: 'day' },
+    sounds: [
+      { from: 'Carbon dioxide in view', to: 'drone pitch and brightness', detail: 'When places with a lot of carbon dioxide come into view, the drone lifts and sounds brighter.' },
+      { from: 'Spread of high carbon dioxide', to: 'thicker, louder drone', detail: 'The more of the globe shows high carbon dioxide, the more voices the drone has.' },
+      { from: 'Highest levels', to: 'clashing note', detail: 'A tense, clashing note creeps in when the highest levels are in view.' },
+      { from: 'The turning globe', to: 'the whole sound', detail: 'East Asia at the start and the Amazon at the end sound thick and tense; Africa and the Atlantic sound thin.' },
+      { from: 'Position on screen', to: 'left or right', detail: 'Sounds on the left come from the left side of the globe on screen, sounds on the right from the right side.' },
+    ],
+  },
+];
+
+const DEFAULT_ACCENT = '#6f7ba0';
+
+/**
+ * Combine the UI catalogue with the manifest entries from index.json.
+ * Returns the index.json datasets: catalogue order first, then any datasets
+ * the catalogue does not know about yet (so new data shows up automatically).
+ */
+export function mergeRecords(indexEntries = []) {
+  const byId = new Map(indexEntries.map((e) => [e.id, e]));
+  const known = new Set(RECORDS.map((r) => r.id));
+
+  const merged = RECORDS.filter((cfg) => byId.has(cfg.id)).map((cfg) => {
+    const entry = byId.get(cfg.id);
+    return {
+      id: cfg.id,
+      shortTitle: cfg.shortTitle,
+      title: entry.title ?? cfg.title,
+      description: entry.description ?? '',
+      colorMeaning: entry.colorMeaning ?? '',
+      source: entry.source ?? '',
+      credit: entry.credit ?? 'NASA/SVS',
+      soundHint: cfg.soundHint,
+      accent: cfg.accent ?? DEFAULT_ACCENT,
+      legend: cfg.legend ?? null,
+      summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
+      gridKind: cfg.gridKind ?? 'world-map',
+      westLon: cfg.westLon ?? -180,
+      dataOn: cfg.dataOn ?? 'any',
+      aspect: cfg.aspect ?? 2,
+      time: cfg.time ?? null,
+      valueUnit: cfg.valueUnit ?? null,
+      quiet: cfg.quiet ?? null,
+      emptyLabel: cfg.emptyLabel ?? null,
+      outside: cfg.outside ?? null,
+      keepClear: cfg.keepClear ?? null,
+      sounds: cfg.sounds ?? [],
+      mock: !!entry.mock,
+      entry,
+    };
+  });
+
+  for (const entry of indexEntries) {
+    if (known.has(entry.id)) continue;
+    merged.push({
+      id: entry.id,
+      shortTitle: entry.title,
+      title: entry.title,
+      description: entry.description ?? '',
+      colorMeaning: entry.colorMeaning ?? '',
+      source: entry.source ?? '',
+      credit: entry.credit ?? 'NASA/SVS',
+      soundHint: 'NASA data, played as music',
+      accent: DEFAULT_ACCENT,
+      legend: null,
+      summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
+      // Unknown new datasets: describe positions in the picture, never guess places.
+      gridKind: 'screen',
+      westLon: -180,
+      dataOn: 'any',
+      aspect: 2,
+      time: null,
+      valueUnit: null,
+      quiet: null,
+      emptyLabel: null,
+      outside: null,
+      keepClear: null,
+      sounds: [],
+      mock: !!entry.mock,
+      entry,
+    });
+  }
+
+  return merged;
+}
+
+/**
+ * Badge text for a record, or '' for none. Every listed record is real and
+ * ready to play, so only generated test data ("mock": true) gets a badge.
+ */
+export function statusLabel(record) {
+  return record.mock ? 'Mock data' : '';
+}

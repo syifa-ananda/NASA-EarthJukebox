@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Earth Information Jukebox</title>
+  <meta name="description" content="Listen to NASA Earth science visualizations as music, with full keyboard and screen-reader support.">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23111'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d9480f'/%3E%3Ccircle cx='16' cy='16' r='1.5' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="src/ui/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#player">Skip to player</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <h1 class="site-title">The Earth Information Jukebox</h1>
+      <p class="tagline">Pick a record. Watch NASA's view of Earth and hear it as music.</p>
+      <nav aria-label="Page sections">
+        <ul class="nav-list">
+          <li><a href="#records">Records</a></li>
+          <li><a href="#player">Player</a></li>
+          <li><a href="#about">How to listen</a></li>
+          <!-- Opens the shortcuts dialog. In the header so it is reachable from
+               anywhere early in the Tab order, even with single-key shortcuts off. -->
+          <li><button type="button" class="link-button" id="shortcuts-btn" data-open-shortcuts>Keyboard shortcuts</button></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="wrap layout">
+    <section id="records" class="panel records" tabindex="-1" aria-labelledby="records-heading">
+      <h2 id="records-heading">Records</h2>
+      <div id="record-list">
+        <p class="muted">Loading records…</p>
+      </div>
+    </section>
+
+    <section id="player" class="panel player" tabindex="-1" aria-labelledby="player-heading">
+      <h2 id="player-heading">Player: <span class="now-playing" id="now-playing">No record selected</span></h2>
+      <div id="viewer" class="viewer">
+        <!-- Not a live region: all narration goes through #announcer. -->
+        <p id="viewer-status" class="viewer-status">Loading datasets…</p>
+      </div>
+      <!-- Frame and date under the picture (not on it, so nothing covers the video's own labels). -->
+      <p id="frame-caption" class="frame-caption" hidden></p>
+      <!-- Live description for sighted users, about once a second. NOT a live region. -->
+      <p id="narration-caption" class="narration-caption"></p>
+      <!-- Explore-mode readout for sighted users. NOT a live region. -->
+      <p id="explore-readout" class="explore-readout"></p>
+      <div id="transport"></div>
+      <!-- Sound map: laid over the viewer by CSS grid, but placed here in the DOM so
+           the Tab order is transport → sound map → narration settings. -->
+      <div id="sound-map" class="sound-map" tabindex="-1" hidden
+           role="group" aria-roledescription="sound map"
+           aria-label="Sound map. Use arrow keys to explore."
+           aria-describedby="sound-map-help">
+        <div class="map-cursor" id="map-cursor" aria-hidden="true" hidden></div>
+      </div>
+      <p id="sound-map-help" class="visually-hidden">
+        Arrow keys move one cell, Shift plus arrow moves 4. Home and End jump to the west and east edge,
+        Page Up and Page Down to the north and south edge. W says where you are, C compares with the average,
+        J and L change frame. Escape leaves the map.
+      </p>
+      <!-- Narration level, Play legend, and future sound switches. -->
+      <div id="sound-settings"></div>
+      <!-- Which sound engine is running and whether the video loaded.
+           Readable when navigated to; never announced. -->
+      <p id="engine-status" class="engine-status">
+        <span id="sound-status">Sound: loading…</span>
+        <span id="video-status" class="video-status" hidden></span>
+      </p>
+    </section>
+
+    <aside id="info" class="panel info" aria-labelledby="info-heading">
+      <h2 id="info-heading">About this record</h2>
+      <div id="info-body">
+        <p class="muted">Choose a record to see what it shows and how it sounds.</p>
+      </div>
+    </aside>
+
+    <section id="about" class="panel about" tabindex="-1" aria-labelledby="about-heading">
+      <h2 id="about-heading">How to listen</h2>
+      <div id="about-body" class="about-body">
+        <section aria-labelledby="about-what">
+          <h3 id="about-what">What this is</h3>
+          <p>The Earth Information Jukebox turns NASA pictures of our planet into music you can listen to and explore.
+            It is built for blind and low-vision listeners, and for everyone else.</p>
+        </section>
+
+        <section aria-labelledby="about-start">
+          <h3 id="about-start">How to start</h3>
+          <ol>
+            <li>Choose a record from the list.</li>
+            <li>Press Play. Sound only starts after you press it.</li>
+            <li>Use headphones if you can: sounds move between your left and right ear.</li>
+          </ol>
+        </section>
+
+        <section aria-labelledby="about-hear">
+          <h3 id="about-hear">What you hear</h3>
+          <ul>
+            <li><strong>Pitch:</strong> higher notes mean more of what the record measures, such as more city light or more lightning.
+              In the sea temperature record the melody follows the seasons.</li>
+            <li><strong>Loudness and brightness</strong> of the sound follow how bright or busy the picture is.</li>
+            <li><strong>Left or right</strong> tells you where on the picture things are happening.</li>
+            <li><strong>Drum hits</strong> in the lightning record are storms bursting.</li>
+          </ul>
+          <p>To hear the scale first, press <strong>Play legend</strong> (or <kbd>G</kbd>): it plays the notes from the lowest to the highest value.</p>
+        </section>
+
+        <section aria-labelledby="about-explore">
+          <h3 id="about-explore">Explore the picture</h3>
+          <p>Press <kbd>E</kbd> or the Explore map button, then use the arrow keys to move a sound cursor over the picture.
+            Each step plays the value under the cursor and says where you are.
+            <kbd>W</kbd> repeats where you are, <kbd>C</kbd> compares the spot with the average, and <kbd>Escape</kbd> takes you back to Play.
+            A soft tick means there is no data in that spot.</p>
+        </section>
+
+        <section aria-labelledby="about-narration">
+          <h3 id="about-narration">Narration</h3>
+          <p>Under Sound settings, choose Off, Brief or Detailed. While a record plays, your screen reader (such as VoiceOver, NVDA or JAWS)
+            reads a short description every few seconds when something changes. The same words appear under the video for sighted listeners.</p>
+        </section>
+
+        <section aria-labelledby="about-records">
+          <h3 id="about-records">The four records</h3>
+          <ul>
+            <li><strong>Sea surface temperature:</strong> one year of ocean currents and water temperature, March 2007 to March 2008.
+              It shows the seasons and the currents, not a climate trend.</li>
+            <li><strong>Night lights:</strong> city lights from 2012 to 2023. We re-paced NASA's video to one year every 2.5 seconds so the music can follow.</li>
+            <li><strong>Lightning from the space station:</strong> about 2017 to 2023, with no exact dates.
+              The station can't see beyond about 52 degrees north or south.</li>
+            <li><strong>Carbon dioxide:</strong> a tour around a turning globe, January to March 2020.
+              The sound follows the part of the globe facing you, and values are relative: the colour scale has no units.</li>
+          </ul>
+        </section>
+
+        <section aria-labelledby="about-more">
+          <h3 id="about-more">Shortcuts and credits</h3>
+          <p><button type="button" class="link-button" data-open-shortcuts>Show all keyboard shortcuts</button> (or press <kbd>?</kbd>).</p>
+          <p>Data and visualizations: <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Visualizations by <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>, shown at the NASA Earth Information Center. Built for the NASA Space Apps Challenge 2026.</p>
+    </div>
+  </footer>
+
+  <!-- Keyboard shortcuts dialog, filled by src/ui/shortcuts-dialog.js. -->
+  <dialog id="shortcuts-dialog" class="sc-dialog"></dialog>
+
+  <!-- Single polite live region for narration. Filled by src/ui/narrator.js. -->
+  <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="src/ui/main.js"></script>
+</body>
+</html>
