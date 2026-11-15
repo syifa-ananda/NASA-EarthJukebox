@@ -13,11 +13,11 @@
   <a class="skip-link" href="#player">Skip to player</a>
 
   <header class="site-header">
-    <div class="wrap header-inner">
+    <div class="header-inner">
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false">
-            <path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 6v12M23 11v2"/>
+          <svg viewBox="0 0 44 44" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" focusable="false">
+            <path d="M4 18v8M10 14v16M16 8v28M22 4v36M28 11v22M34 15v14M40 19v6"/>
           </svg>
         </span>
         <div class="brand-text">
@@ -34,46 +34,68 @@
         </ul>
         <!-- Opens the shortcuts dialog. In the header so it is reachable early in the
              Tab order, even with single-key shortcuts off. -->
-        <button type="button" class="btn-outline" id="shortcuts-btn" data-open-shortcuts>Keyboard shortcuts</button>
+        <button type="button" class="btn-header" id="shortcuts-btn" data-open-shortcuts>
+          <span class="icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+              <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>
+            </svg>
+          </span>
+          Keyboard shortcuts
+        </button>
       </nav>
     </div>
   </header>
 
-  <main id="main" class="wrap layout">
+  <!-- Layout state lives in data-left / data-info (src/ui/layout.js). The panels
+       stay in the page in every state: DOM order = Tab order = reading order. -->
+  <main id="main" class="layout" data-left="expanded" data-info="default">
     <section id="records" class="panel records" tabindex="-1" aria-labelledby="records-heading">
-      <h2 id="records-heading">Select a dataset</h2>
+      <div class="panel-head records-head">
+        <h2 id="records-heading" class="rail-hide">Select a dataset</h2>
+        <!-- One button for both states: only its icon, label and aria-expanded change,
+             so focus stays on it. Filled by layout.js. -->
+        <button type="button" class="icon-btn sidebar-toggle" id="sidebar-toggle"
+                aria-expanded="true" aria-controls="record-list" aria-label="Collapse dataset list"
+                data-tooltip="Collapse dataset list" data-tooltip-key="B"></button>
+      </div>
       <div id="record-list">
         <p class="muted">Loading datasets…</p>
       </div>
     </section>
 
-    <section id="player" class="player" tabindex="-1" aria-labelledby="player-heading">
-      <h2 id="player-heading" class="player-heading">Player: <span class="now-playing" id="now-playing">No dataset selected</span></h2>
-      <!-- Credit chip in a strip ABOVE the picture, so it never covers data or the
-           video's own labels (co2 date, bottom right). -->
-      <p class="video-strip"><span class="video-chip"><span class="visually-hidden">Video: </span>NASA SVS</span></p>
-      <div id="viewer" class="viewer">
-        <!-- Not a live region: all narration goes through #announcer. -->
-        <p id="viewer-status" class="viewer-status">Loading datasets…</p>
+    <section id="player" class="panel player" tabindex="-1" aria-labelledby="player-heading">
+      <h2 id="player-heading" class="player-heading"><span class="label">Player:</span> <span class="now-playing" id="now-playing">No dataset selected</span></h2>
+      <!-- The stage: what "Expand Earth" shows in full view (src/ui/fullview.js). -->
+      <div id="stage" class="stage">
+        <!-- On the picture's top edge: the credit chip (text, not a control) and
+             Expand Earth. Laid over the viewer by CSS grid, above the sound map. -->
+        <div class="viewer-overlay">
+          <p class="source-pill" id="source-pill" hidden><span class="visually-hidden">Video: </span><span id="source-pill-text"></span></p>
+          <button type="button" class="overlay-btn" id="expand-btn"></button>
+        </div>
+        <div id="viewer" class="viewer">
+          <!-- Not a live region: all narration goes through #announcer. -->
+          <p id="viewer-status" class="viewer-status">Loading datasets…</p>
+        </div>
+        <!-- Frame and date under the picture (not on it). -->
+        <p id="frame-caption" class="frame-caption" hidden></p>
+        <!-- Explore-mode readout for sighted users. NOT a live region. -->
+        <p id="explore-readout" class="explore-readout"></p>
+        <div id="transport"></div>
+        <!-- Sound map: laid over the viewer by CSS grid, but placed here in the DOM so
+             the Tab order is control bar → sound map → sound settings. -->
+        <div id="sound-map" class="sound-map" tabindex="-1" hidden
+             role="group" aria-roledescription="sound map"
+             aria-label="Sound map. Use arrow keys to explore."
+             aria-describedby="sound-map-help">
+          <div class="map-cursor" id="map-cursor" aria-hidden="true" hidden></div>
+        </div>
+        <p id="sound-map-help" class="visually-hidden">
+          Arrow keys move one cell, Shift plus arrow moves 4. Home and End jump to the west and east edge,
+          Page Up and Page Down to the north and south edge. W says where you are, C compares with the average,
+          J and L change frame. Escape leaves the map.
+        </p>
       </div>
-      <!-- Frame and date under the picture (not on it). -->
-      <p id="frame-caption" class="frame-caption" hidden></p>
-      <!-- Explore-mode readout for sighted users. NOT a live region. -->
-      <p id="explore-readout" class="explore-readout"></p>
-      <div id="transport"></div>
-      <!-- Sound map: laid over the viewer by CSS grid, but placed here in the DOM so
-           the Tab order is control bar → sound map → sound settings. -->
-      <div id="sound-map" class="sound-map" tabindex="-1" hidden
-           role="group" aria-roledescription="sound map"
-           aria-label="Sound map. Use arrow keys to explore."
-           aria-describedby="sound-map-help">
-        <div class="map-cursor" id="map-cursor" aria-hidden="true" hidden></div>
-      </div>
-      <p id="sound-map-help" class="visually-hidden">
-        Arrow keys move one cell, Shift plus arrow moves 4. Home and End jump to the west and east edge,
-        Page Up and Page Down to the north and south edge. W says where you are, C compares with the average,
-        J and L change frame. Escape leaves the map.
-      </p>
       <!-- Live narration card for sighted listeners. The caption inside is NOT a live
            region: the hidden #announcer does the speaking. -->
       <div class="narration-card">
@@ -101,10 +123,19 @@
     <!-- On wide screens this panel scrolls on its own; main.js then makes it a
          Tab stop (tabindex="0") so it can be scrolled with the keyboard. -->
     <aside id="info" class="panel info" role="region" aria-label="About this dataset">
-      <h2 id="info-heading">About this dataset</h2>
-      <div id="info-body">
+      <div class="panel-head info-head">
+        <h2 id="info-heading">About this dataset</h2>
+        <!-- Expand ↔ Collapse and Hide ↔ Show: two buttons, filled by layout.js. -->
+        <div class="info-actions">
+          <button type="button" class="icon-btn" id="info-expand"></button>
+          <button type="button" class="icon-btn" id="info-hide"></button>
+        </div>
+      </div>
+      <div id="info-body" class="info-body">
         <p class="muted">Choose a dataset to see what it shows and how it sounds.</p>
       </div>
+      <!-- Soft fade at the bottom while there is more to scroll (main.js). -->
+      <div class="info-fade" aria-hidden="true"></div>
     </aside>
   </main>
 

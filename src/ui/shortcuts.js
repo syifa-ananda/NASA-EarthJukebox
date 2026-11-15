@@ -8,7 +8,9 @@
 // - Never fire while focus is in a text field, <select> or slider, so native
 //   keys (arrows, Page Up/Down, Home/End, typing) keep working.
 // - Single-key shortcuts can be switched off (WCAG 2.1.4 Character Key
-//   Shortcuts): K, J, L, N, D, E, W, C, G and ?. Space stays on, because it
+//   Shortcuts): K, J, L, N, D, E, W, C, G, B and ?.
+// - B toggles the dataset sidebar (not Command+B, which browsers use for
+//   bookmarks). Space stays on, because it
 //   only works while focus is on the player panel itself (WCAG 2.1.4 allows
 //   shortcuts that are active only on focus). The "Keyboard shortcuts"
 //   button always opens the list.
@@ -17,6 +19,7 @@ export const SHORTCUT_GROUPS = [
   { id: 'playback', title: 'Playback' },
   { id: 'sound', title: 'Narration and sound' },
   { id: 'explore', title: 'Explore' },
+  { id: 'layout', title: 'Layout' },
   { id: 'general', title: 'This list' },
 ];
 
@@ -31,6 +34,7 @@ export const SHORTCUTS = [
   { action: 'explore', group: 'explore', keys: ['E'], description: 'Explore the picture with the sound cursor' },
   { action: 'whereAmI', group: 'explore', keys: ['W'], description: 'Where is the sound cursor? Place, column, row and value' },
   { action: 'compare', group: 'explore', keys: ['C'], description: 'Compare the cursor spot with the average' },
+  { action: 'toggleSidebar', group: 'layout', keys: ['B'], description: 'Show or hide the dataset list (thumbnails only when hidden)' },
   { action: 'help', group: 'general', keys: ['?'], description: 'Show this list of keyboard shortcuts' },
 ];
 
@@ -86,10 +90,10 @@ function isControl(el) {
 
 const KEY_ACTIONS = {
   k: 'toggle', j: 'back', l: 'forward', n: 'cycleNarration', d: 'describe', e: 'explore', w: 'whereAmI', c: 'compare',
-  g: 'legend', '?': 'help',
+  g: 'legend', b: 'toggleSidebar', '?': 'help',
 };
 
-/** actions: { toggle, back, forward, cycleNarration, describe, explore, whereAmI, compare, legend, help } */
+/** actions: { toggle, back, forward, cycleNarration, describe, explore, whereAmI, compare, legend, toggleSidebar, help } */
 export function installShortcuts(actions) {
   document.addEventListener('keydown', (event) => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;

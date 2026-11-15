@@ -13,11 +13,11 @@
   <a class="skip-link" href="#main">Skip to main content</a>
 
   <header class="site-header">
-    <div class="wrap header-inner">
+    <div class="header-inner">
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false">
-            <path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 6v12M23 11v2"/>
+          <svg viewBox="0 0 44 44" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" focusable="false">
+            <path d="M4 18v8M10 14v16M16 8v28M22 4v36M28 11v22M34 15v14M40 19v6"/>
           </svg>
         </span>
         <div class="brand-text">
@@ -33,7 +33,14 @@
           <li><a class="nav-link" href="index.html" data-keep-state>Jukebox</a></li>
           <li><a class="nav-link" href="how-to-listen.html" aria-current="page" data-keep-state>How to listen</a></li>
         </ul>
-        <button type="button" class="btn-outline" id="shortcuts-btn" data-open-shortcuts>Keyboard shortcuts</button>
+        <button type="button" class="btn-header" id="shortcuts-btn" data-open-shortcuts>
+          <span class="icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+              <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>
+            </svg>
+          </span>
+          Keyboard shortcuts
+        </button>
       </nav>
     </div>
   </header>
@@ -122,6 +129,7 @@
         <h2 id="help-more">Shortcuts and credits</h2>
         <p><button type="button" class="link-button" data-open-shortcuts>Show all keyboard shortcuts</button> (or press <kbd>?</kbd>).
           Single-key shortcuts can be switched off in that list.</p>
+        <p>On the jukebox, <kbd>B</kbd> shows or hides the dataset list (the collapsed list keeps small pictures of each dataset).</p>
         <p>Data and visualizations: <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>.</p>
         <p>Recorded violin, cello and piano: VSCO 2 Community Edition, public domain (CC0).</p>
         <p>Photos on the dataset cards: credited in <a href="src/ui/img/cards/CREDITS.md">the card photo credits</a>.</p>

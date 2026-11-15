@@ -83,6 +83,13 @@ export function pictureInsets() {
 
 function emitLayout() {
   const insets = pictureInsets();
+  // The sound map shares the viewer's grid cell (styles.css → .stage): it is
+  // sized from the viewer's box minus these insets (explore.js sets them as
+  // its margins), so it covers exactly the picture at any size, in full view too.
+  const host = viewerEl.parentElement;
+  host?.style.setProperty('--picture-inset-x', `${insets.left + insets.right}px`);
+  host?.style.setProperty('--picture-inset-y', `${insets.top + insets.bottom}px`);
+  host?.style.setProperty('--viewer-box-h', `${viewerEl.offsetHeight}px`);
   layoutListeners.forEach((fn) => fn(insets));
 }
 
@@ -99,6 +106,9 @@ export function setAspect(aspect) {
   if (!(aspect > 0)) return;
   contentAspect = aspect;
   viewerEl.style.aspectRatio = String(aspect);
+  // The same shape for the picture's overlays and the sound map, which share
+  // its grid cell (styles.css → .stage: width capped by height × this ratio).
+  viewerEl.parentElement?.style.setProperty('--viewer-aspect', String(aspect));
   emitLayout();
 }
 
