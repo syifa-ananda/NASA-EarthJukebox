@@ -29,6 +29,7 @@ import { frameLabel, rangesFor } from './narration.js';
 import { levelWord } from '../audio/engine/describe.js';
 import { normalizeValue } from '../audio/engine/normalize.js';
 import { getPreset } from '../audio/presets/index.js';
+import { presetText } from './preset-text.js';
 
 const ANNOUNCE_DEBOUNCE_MS = 250; // holding an arrow: speak once it settles
 const HOVER_GAP_MS = 100; // pointer probing: at most ~10 per second
@@ -66,7 +67,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     pendingHover: null,
   };
 
-  const IDLE_READOUT = 'Explore the picture: press E, use the Explore map button, or point at it.';
+  const IDLE_READOUT = 'Explore the picture: press E, use the Explore button, or point at it.';
 
   // ---------- helpers ----------
 
@@ -108,12 +109,14 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
   const isOutside = (y = s.y) => !!s.record.outside?.rows.includes(y);
 
   /**
-   * What an empty cell means: the dataset's "outside" rows first, then the
-   * UI's own emptyLabel (co2), then the engine's probe label.
+   * What an empty cell means: the dataset's "outside" rows first, then an
+   * empty cell over water on a water dataset (sst: sea ice, not land), then
+   * the UI's own emptyLabel (co2), then the engine's probe label.
    */
   function emptyLabel(result) {
     if (isOutside()) return s.record.outside.label;
-    return s.record.emptyLabel ?? result.label ?? 'no data';
+    if (s.record.emptyWaterLabel && !isScreen() && !place().isLand) return s.record.emptyWaterLabel;
+    return s.record.emptyLabel ?? (presetText(result.label) || 'no data');
   }
 
   /** "Very high, about 28 °C, warm tropical water." / "High night light, 0.42." / "Land, where there is no ocean data." */

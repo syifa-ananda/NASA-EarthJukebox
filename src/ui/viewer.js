@@ -48,18 +48,37 @@ function setCaption(text) {
  * in px. The explore grid must line up with this area, not with black bars.
  */
 export function pictureInsets() {
+  // The sound map overlays the viewer's whole box, border included, while the
+  // picture sits inside the border: add the border widths to the insets.
+  const cs = getComputedStyle(viewerEl);
+  const b = {
+    top: parseFloat(cs.borderTopWidth) || 0,
+    right: parseFloat(cs.borderRightWidth) || 0,
+    bottom: parseFloat(cs.borderBottomWidth) || 0,
+    left: parseFloat(cs.borderLeftWidth) || 0,
+  };
   const w = viewerEl.clientWidth;
   const h = viewerEl.clientHeight;
-  if (!w || !h || mode !== 'video') return { top: 0, right: 0, bottom: 0, left: 0, width: w, height: h };
-  const boxAspect = w / h;
-  if (boxAspect > contentAspect) {
-    const pw = h * contentAspect;
-    const side = (w - pw) / 2;
-    return { top: 0, right: side, bottom: 0, left: side, width: pw, height: h };
+  let bars = { top: 0, right: 0, bottom: 0, left: 0, width: w, height: h };
+  if (w && h && mode === 'video') {
+    if (w / h > contentAspect) {
+      const pw = h * contentAspect;
+      const side = (w - pw) / 2;
+      bars = { top: 0, right: side, bottom: 0, left: side, width: pw, height: h };
+    } else {
+      const ph = w / contentAspect;
+      const band = (h - ph) / 2;
+      bars = { top: band, right: 0, bottom: band, left: 0, width: w, height: ph };
+    }
   }
-  const ph = w / contentAspect;
-  const band = (h - ph) / 2;
-  return { top: band, right: 0, bottom: band, left: 0, width: w, height: ph };
+  return {
+    top: bars.top + b.top,
+    right: bars.right + b.right,
+    bottom: bars.bottom + b.bottom,
+    left: bars.left + b.left,
+    width: bars.width,
+    height: bars.height,
+  };
 }
 
 function emitLayout() {

@@ -1,9 +1,20 @@
-// Record picker: a native radio group styled as vinyl record cards.
+// Record picker: a native radio group styled as photo cards.
 // Native radios give us the expected keyboard model for free: Tab enters and
 // leaves the group as one stop, and arrow keys move (and select) within it.
 
 import { h } from './dom.js';
 import { statusLabel } from './config/datasets.js';
+
+/**
+ * Decorative full-bleed photo behind the card text (config → photo). An
+ * absolute URL, so it doesn't depend on which file sets the style. A dark
+ * scrim on top (CSS) keeps the words readable; a missing file just leaves the
+ * plain card colour.
+ */
+function photoStyle(photo) {
+  if (!photo) return null;
+  return { backgroundImage: `url("${new URL(photo, document.baseURI).href}")` };
+}
 
 function recordItem(record) {
   const base = `record-${record.id}`;
@@ -20,10 +31,11 @@ function recordItem(record) {
     'aria-describedby': `${base}-hint`,
   });
 
+  const photo = photoStyle(record.photo);
   const card = h(
     'label',
-    { for: base, class: 'record-card', '--record-accent': record.accent },
-    h('span', { class: 'record-disc', 'aria-hidden': 'true' }),
+    { for: base, class: `record-card${photo ? ' has-photo' : ''}`, '--record-accent': record.accent },
+    photo && h('span', { class: 'record-photo', 'aria-hidden': 'true', style: photo }),
     h(
       'span',
       { class: 'record-text' },
@@ -40,11 +52,18 @@ function recordItem(record) {
           ),
       ),
       h('span', { class: 'record-hint', id: `${base}-hint` }, record.soundHint),
+      // Visual state only: screen readers already hear "selected" from the
+      // radio and Play / Pause from the Play button.
+      h(
+        'span',
+        { class: 'record-state', 'aria-hidden': 'true' },
+        h('span', { class: 'state-selected' }, 'Selected'),
+        h('span', { class: 'state-playing' }, 'Now playing'),
+      ),
     ),
-    h('span', { class: 'record-check', 'aria-hidden': 'true' }, '✓'),
   );
 
-  return h('div', { class: 'record' }, input, card);
+  return h('div', { class: `record record-${record.id}` }, input, card);
 }
 
 /**
@@ -56,7 +75,8 @@ export function renderRecordList(container, records, { onSelect }) {
   const fieldset = h(
     'fieldset',
     { class: 'record-list' },
-    h('legend', {}, 'Choose a record'),
+    // The visible heading says "Select a dataset"; the group name stays short.
+    h('legend', { class: 'visually-hidden' }, 'Datasets'),
     h('div', { class: 'record-items' }, records.map(recordItem)),
   );
   // Plain text, not a link or control: says the list can grow.

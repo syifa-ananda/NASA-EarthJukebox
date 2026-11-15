@@ -1,45 +1,48 @@
-/* Earth Information Jukebox UI styles.
-   Colour tokens are checked for WCAG AA: text >= 4.5:1, large text and
-   UI boundaries / focus ring >= 3:1 against their backgrounds. */
+/* Earth Jukebox styles.
+ *
+ * One look: the dark reference design, whatever the system setting
+ * (color-scheme: dark also makes native selects, sliders, checkboxes and
+ * scrollbars dark). Every colour comes from the tokens below and is checked
+ * for WCAG AA: text >= 4.5:1, UI boundaries and the focus ring >= 3:1.
+ * Glows and animations are switched off under prefers-reduced-motion, and
+ * forced-colors (Windows High Contrast) drops images, glows and gradients.
+ */
+
+/* ---------- Tokens (dark, the reference look) ---------- */
 
 :root {
-  --bg: #0b1020;
-  --surface: #141a2e;
-  --surface-2: #1d2541;
-  --text: #eef1f8;
-  --text-muted: #b4bdd3;
-  --accent: #8ccbff;
-  --accent-strong: #c4e4ff;
-  --border: #6f7ba0;
+  color-scheme: dark;
+  --bg: #061226;
+  --bg-glow: rgba(79, 216, 240, 0.08);
+  --surface: #0b1a33;
+  --surface-2: #12264a;
+  --card: #0e2142;
+  --line: #1f3a63; /* decorative separators only */
+  --text: #eaf2ff;
+  --text-muted: #a9bcda;
+  --accent: #4fd8f0;
+  --accent-strong: #9be9f7;
+  --glow: rgba(79, 216, 240, 0.4);
+  --border: #5f7fa8; /* control boundaries, >= 3:1 */
   --focus: #ffd166;
-  --danger: #ff9b9b;
+  --on-focus: #000000; /* skip link text on the focus colour */
+  --btn-text: #04121f;
   --badge-mock: #ffd98a;
-  --disc: #15151c;
-  --disc-groove: #2c2c38;
-  --btn-text: #0b1020;
+  --danger: #ff9b9b;
 
-  --radius: 10px;
-  --gap: 1rem;
+  --video-bg: #02060d;
+  --strip-bg: #050c18;
+  --strip-text: #e6f2ff;
+  --frame-border: #29476f;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --gap: 1.25rem;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f5f7fb;
-    --surface: #ffffff;
-    --surface-2: #e9edf6;
-    --text: #121829;
-    --text-muted: #46506a;
-    --accent: #0b4f9c;
-    --accent-strong: #073a75;
-    --border: #6b7590;
-    --focus: #b0400b;
-    --danger: #a3171d;
-    --badge-mock: #7a4a00;
-    --btn-text: #ffffff;
-  }
-}
+/* ---------- Base ---------- */
 
 *,
 *::before,
@@ -53,14 +56,19 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 520px at 75% -10%, var(--bg-glow), transparent 70%),
+    var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 1rem;
   line-height: 1.55;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   line-height: 1.25;
   margin: 0 0 0.5em;
 }
@@ -73,18 +81,22 @@ a:hover {
   color: var(--accent-strong);
 }
 
-/* ---------- Focus: always visible for keyboard users ---------- */
+/* ---------- Focus: always visible, amber/orange so it never looks like the
+   cyan "selected" glow ---------- */
 
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
-/* Programmatic focus targets (e.g. the skip-link destination) get a subtle
-   ring so sighted keyboard users can see where they landed. */
-[tabindex="-1"]:focus-visible {
-  outline-style: dashed;
+/* Sections that receive focus from the skip links: always show where focus
+   landed, whatever input was used. */
+#records:focus,
+#player:focus,
+.help:focus {
+  outline: 3px dashed var(--focus);
+  outline-offset: 6px;
 }
 
 /* ---------- Utilities ---------- */
@@ -105,8 +117,12 @@ a:hover {
   color: var(--text-muted);
 }
 
+.small {
+  font-size: 0.875rem;
+}
+
 .wrap {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1rem;
 }
@@ -120,9 +136,9 @@ a:hover {
   z-index: 100;
   padding: 0.75rem 1rem;
   background: var(--focus);
-  color: #000;
+  color: var(--on-focus);
   font-weight: 700;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   text-decoration: none;
 }
 
@@ -130,20 +146,51 @@ a:hover {
   top: 1rem;
 }
 
-/* ---------- Header / footer ---------- */
+/* ---------- Header ---------- */
 
 .site-header {
-  padding: 1.5rem 0 1rem;
-  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon {
+  display: inline-flex;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--glow));
 }
 
 .site-title {
-  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+  margin: 0;
+  line-height: 1.25; /* same on both pages (an h1 here, a p on how-to-listen.html) */
+  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .tagline {
-  margin: 0 0 0.75rem;
+  margin: 0;
   color: var(--text-muted);
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
 }
 
 .nav-list {
@@ -155,50 +202,288 @@ a:hover {
   list-style: none;
 }
 
-.site-footer {
-  margin-top: 2rem;
-  padding: 1rem 0 2rem;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.9rem;
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: none;
+  /* Room for the current-page bar, so the text doesn't move. */
+  border-bottom: 3px solid transparent;
 }
 
-/* ---------- Layout ----------
-   DOM order = tab order = reading order. The grid only places panels;
-   it never reorders them. */
+.nav-link:hover {
+  text-decoration: underline;
+}
+
+/* The page you are on: plain text colour plus a thick bar (not colour alone). */
+.nav-link[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+
+/* ---------- Form controls (shared) ---------- */
+
+select {
+  min-height: 44px;
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+input[type="range"] {
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+input[type="range"]:disabled {
+  cursor: not-allowed;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-width: 7.5rem;
+  min-height: 48px;
+  padding: 0.5rem 1.4rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--btn-text);
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 0 18px var(--glow);
+  cursor: pointer;
+}
+
+.btn-play:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.btn-secondary,
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.btn-outline {
+  border-color: var(--accent);
+}
+
+.btn-secondary:hover,
+.btn-outline:hover {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.btn-play[aria-disabled="true"],
+.btn-secondary[aria-disabled="true"] {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border);
+  border-style: dashed;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.link-button {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent-strong);
+}
+
+.icon-svg {
+  display: inline-flex;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.icon-svg svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Play / pause glyphs drawn with borders in currentColor (safe in
+   forced colours too). */
+.icon {
+  display: inline-block;
+  flex: none;
+}
+
+.icon-play {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0.5rem 0 0.5rem 0.8rem;
+  border-color: transparent transparent transparent currentColor;
+}
+
+.icon-pause {
+  width: 0.8rem;
+  height: 1rem;
+  border-left: 0.28rem solid currentColor;
+  border-right: 0.28rem solid currentColor;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.35em;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* ---------- Layout: 3 columns wide, 2 on tablets, 1 on phones ----------
+   DOM order = tab order = reading order. The grid only places panels. */
 
 .layout {
   display: grid;
   gap: var(--gap);
   padding-top: var(--gap);
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "records"
     "player"
-    "info"
-    "about";
+    "info";
 }
 
-@media (min-width: 900px) {
+@media (min-width: 760px) {
   .layout {
-    grid-template-columns: minmax(260px, 1.15fr) minmax(0, 2.2fr) minmax(240px, 1.15fr);
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
     grid-template-areas:
-      "records player info"
-      "about   about  about";
+      "records player"
+      "info    info";
     align-items: start;
   }
+}
+
+@media (min-width: 1200px) {
+  .layout {
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(280px, 340px);
+    grid-template-areas:
+      "records player info";
+  }
+}
+
+/* Wide screens (3 columns): the page itself doesn't scroll. Header on top,
+   the three columns fill the rest of the window, and each column scrolls on
+   its own when its content is taller (About this dataset nearly always; the
+   player on windows under about 1100 px tall). Short windows and zoomed-in
+   pages (narrower than 1200 CSS px) keep normal page scrolling. */
+@media (min-width: 1200px) and (min-height: 600px) {
+  .page-jukebox {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .page-jukebox .site-header,
+  .page-jukebox .site-footer {
+    flex: none;
+  }
+
+  .page-jukebox .layout {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    padding-bottom: 0.75rem;
+  }
+
+  .page-jukebox .records,
+  .page-jukebox .player,
+  .page-jukebox .info {
+    /* Positioned, so visually-hidden text (position: absolute) stays inside
+       the scroll box instead of stretching the page. */
+    position: relative;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  /* Rows keep their content height inside the fixed-height scroll box (the
+     video box has overflow: hidden, so without this its row could shrink and
+     the controls would slide under the picture). Padding leaves room for
+     focus rings. */
+  .page-jukebox .player {
+    grid-auto-rows: max-content;
+    align-content: start;
+    margin-inline: -8px;
+    padding: 4px 8px 12px;
+  }
+
+  .page-jukebox .site-footer {
+    margin-top: 0;
+    padding: 0.35rem 0 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .page-jukebox .site-footer p {
+    margin: 0;
+  }
+}
+
+/* The scrollable "About this dataset" panel (wide screens): a focus stop with
+   a visible ring, so it can be scrolled with the arrow keys. */
+.info:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 .records { grid-area: records; }
 .player  { grid-area: player; }
 .info    { grid-area: info; }
-.about   { grid-area: about; }
 
 .panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 1.1rem;
   min-width: 0;
 }
 
@@ -206,18 +491,271 @@ a:hover {
   font-size: 1.15rem;
 }
 
-/* ---------- Viewer ---------- */
+/* ---------- Dataset cards (a native radio group) ---------- */
+
+.record-list {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.record-items {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.records-more {
+  margin: 0.9rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.record {
+  position: relative;
+}
+
+/* The real radio covers the whole card: it is the click target, and screen
+   reader cursors outline the full card. It is invisible, not hidden. */
+.record-input {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.record-card {
+  position: relative;
+  display: grid;
+  align-items: end;
+  min-height: 6.5rem;
+  padding: 0.85rem 1rem;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  /* Shown when there is no photo (or it hasn't loaded). */
+  background: linear-gradient(100deg, var(--card) 40%, color-mix(in srgb, var(--record-accent) 22%, var(--card)) 100%);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* Decorative full-bleed photo (src/ui/img/cards/<id>.jpg), with a dark scrim
+   on top. The scrim alone keeps every word on the card >= 4.5:1 even where
+   the photo is pure white: at its lightest (top edge) it leaves at most 38 %
+   of the photo showing through (worst case measured: 5.4:1). Checked by rendering the cards over an
+   all-white test photo and measuring the lightest pixel behind each word. */
+.record-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--card);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.record-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(4, 11, 26, 0.86) 0%,
+    rgba(4, 11, 26, 0.72) 50%,
+    rgba(4, 11, 26, 0.62) 100%
+  );
+}
+
+.record-text {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  /* Not counted for contrast (the scrim does that); it only softens busy photos. */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.record-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.record-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* Full-strength text colour: muted grey would need a darker scrim over bright photos. */
+.record-hint {
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* "Selected" / "Now playing": visible text, so the state never depends on
+   the glow or colour alone. */
+.record-state {
+  display: none;
+  width: fit-content;
+  margin-top: 0.3rem;
+  padding: 0 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  /* Its own solid background, so it reads the same over any photo. */
+  background: var(--bg);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  text-shadow: none;
+}
+
+.state-playing {
+  display: none;
+}
+
+.record-input:checked + .record-card .record-state {
+  display: inline-flex;
+}
+
+.is-playing .record-input:checked + .record-card .state-selected {
+  display: none;
+}
+
+.is-playing .record-input:checked + .record-card .state-playing {
+  display: inline;
+}
+
+.record-input:hover + .record-card {
+  border-color: var(--accent);
+}
+
+.record-input:checked + .record-card {
+  border: 2px solid var(--accent);
+  padding: calc(0.85rem - 1px) calc(1rem - 1px);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--glow);
+}
+
+.record-input:focus-visible + .record-card {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.record-badge {
+  display: inline-block;
+  padding: 0 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-mock {
+  color: var(--badge-mock);
+  background: var(--bg);
+  text-shadow: none;
+}
+
+/* ---------- Player: video frame ---------- */
+
+/* The sound map comes after the control bar in the DOM (Tab: control bar →
+   sound map → sound settings) but sits on top of the video: same grid row. */
+.player {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.player > * { grid-column: 1; }
+.player > .player-heading { grid-row: 1; }
+.player > .video-strip { grid-row: 2; }
+.player > .viewer,
+.player > .sound-map { grid-row: 3; }
+.player > .frame-caption { grid-row: 4; }
+.player > .explore-readout { grid-row: 5; }
+.player > #transport { grid-row: 6; }
+.player > .narration-card { grid-row: 7; }
+.player > #sound-settings { grid-row: 8; }
+.player > .engine-status { grid-row: 9; }
+
+.player-heading {
+  margin: 0 0 0.6rem;
+  font-size: 1.15rem;
+}
+
+.now-playing {
+  color: var(--text-muted);
+}
+
+/* Strip above the picture with the credit chip: never on top of the data. */
+.video-strip {
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  background: var(--strip-bg);
+  border: 1px solid var(--frame-border);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.video-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.65rem;
+  color: var(--strip-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+}
 
 .viewer {
   position: relative;
   aspect-ratio: 2 / 1;
-  background: #000;
-  border-radius: calc(var(--radius) - 4px);
   overflow: hidden;
   display: grid;
   place-items: center;
+  background: var(--video-bg);
+  border: 1px solid var(--frame-border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: 0 10px 40px var(--glow);
 }
 
+/* The real video. object-fit keeps its shape; the viewer box takes the
+   video's own aspect ratio, so normally there are no bars at all. */
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--video-bg);
+}
+
+.video[hidden],
+.heatmap[hidden] {
+  display: none;
+}
+
+.heatmap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Messages in the middle of the (black) video box. */
 .viewer-status {
   position: relative;
   z-index: 1;
@@ -236,393 +774,26 @@ a:hover {
   color: #ffb4b4;
 }
 
-/* Over the picture: a dark caption box keeps text readable (>= 10:1 on any
-   pixel colour underneath). */
-.viewer-status.is-caption {
-  position: absolute;
-  left: 0.5rem;
-  bottom: 0.5rem;
-  padding: 0.25rem 0.6rem;
-  background: rgba(0, 0, 0, 0.78);
-  color: #ffffff;
-  font-size: 0.875rem;
-  border-radius: 6px;
-  text-align: left;
-}
-
-.heatmap {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.heatmap[hidden] {
-  display: none;
-}
-
-/* The real video. object-fit keeps its shape; the viewer box is given the
-   video's own aspect ratio, so normally there are no bars at all. */
-.video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-.video[hidden] {
-  display: none;
-}
-
-.now-playing {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.875rem;
-}
-
-/* ---------- Record list ---------- */
-
-.record-list {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.record-list legend {
-  padding: 0;
-  margin-bottom: 0.5rem;
-  font-weight: 700;
-}
-
-.records-more {
-  margin: 0.75rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.record-items {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.record {
-  position: relative;
-}
-
-/* The real radio covers the whole card: it is the click target, and screen
-   reader cursors outline the full card. It is invisible, not hidden. */
-.record-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-  z-index: 1;
-}
-
-.record-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 1.75rem 0.55rem 0.6rem;
-  background: var(--surface-2);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-}
-
-
-.record-input:hover + .record-card {
-  border-color: var(--accent);
-}
-
-/* Selected: thicker border in the text colour plus a check mark, so the state
-   never depends on colour alone. */
-.record-input:checked + .record-card {
-  border-color: var(--text);
-  box-shadow: inset 0 0 0 2px var(--text);
-}
-
-.record-input:focus-visible + .record-card {
-  outline: 3px solid var(--focus);
-  outline-offset: 3px;
-}
-
-.record-disc {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    var(--surface-2) 0 7%,
-    var(--record-accent) 8% 33%,
-    var(--disc) 34% 42%,
-    var(--disc-groove) 43% 47%,
-    var(--disc) 48% 60%,
-    var(--disc-groove) 61% 65%,
-    var(--disc) 66% 100%
-  );
-}
-
-
-.record-text {
-  display: grid;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.record-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-}
-
-.record-title {
-  font-weight: 700;
-}
-
-.record-hint {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.record-check {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.55rem;
-  visibility: hidden;
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-
-.record-input:checked + .record-card .record-check {
-  visibility: visible;
-}
-
-.record-badge {
-  display: inline-block;
-  padding: 0 0.45rem;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.5;
-  white-space: nowrap;
-}
-
-.badge-mock {
-  color: var(--badge-mock);
-}
-
-
-
-/* Playing indicator: the selected record's disc spins (static under reduced
-   motion; the Pause label and the "Playing" caption carry the state too). */
-@keyframes disc-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.is-playing .record-input:checked + .record-card .record-disc {
-  animation: disc-spin 2.4s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .is-playing .record-input:checked + .record-card .record-disc {
-    animation: none;
-  }
-}
-
-/* ---------- Transport ---------- */
-
-.transport {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1.25rem;
-  margin-top: 0.75rem;
-}
-
-.btn-play {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  min-width: 7.5rem;
-  min-height: 48px;
-  padding: 0.5rem 1.2rem;
-  font: inherit;
-  font-weight: 700;
-  color: var(--btn-text);
-  background: var(--accent);
-  border: 2px solid var(--accent);
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.btn-play:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
-}
-
-.btn-play[aria-disabled="true"] {
-  color: var(--text-muted);
-  background: transparent;
-  border-color: var(--border);
-  border-style: dashed;
-  cursor: not-allowed;
-}
-
-.icon {
-  display: inline-block;
-  flex: none;
-}
-
-/* Drawn with borders in currentColor, so they follow the theme and stay
-   visible in forced-colours mode. */
-.icon-play {
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0.5rem 0 0.5rem 0.8rem;
-  border-color: transparent transparent transparent currentColor;
-}
-
-.icon-pause {
-  width: 0.8rem;
-  height: 1rem;
-  border-left: 0.28rem solid currentColor;
-  border-right: 0.28rem solid currentColor;
-}
-
-.t-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.t-group label {
-  font-weight: 600;
-}
-
-.t-timeline {
-  flex: 1 1 16rem;
-}
-
-.t-timeline input[type="range"] {
-  flex: 1 1 auto;
-  min-width: 6rem;
-}
-
-.transport input[type="range"] {
-  min-height: 44px;
-  margin: 0;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.transport input[type="range"]:disabled {
-  cursor: not-allowed;
-}
-
-#volume {
-  width: 7rem;
-}
-
-.readout {
-  min-width: 4.5ch;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.transport select {
-  min-height: 44px;
-  padding: 0.25rem 0.5rem;
-  font: inherit;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-
-.t-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 44px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.t-check input {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.transport-help {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-/* ---------- Player grid ----------
-   The sound map comes after the transport in the DOM (so Tab goes transport →
-   map → narration settings) but sits on top of the viewer: both share row 2. */
-
-.player {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.player > * {
-  grid-column: 1;
-}
-
-.player > h2 { grid-row: 1; }
-.player > .viewer,
-.player > .sound-map { grid-row: 2; }
-.player > .frame-caption { grid-row: 3; }
-.player > .narration-caption { grid-row: 4; }
-.player > .explore-readout { grid-row: 5; }
-.player > #transport { grid-row: 6; }
-.player > #sound-settings { grid-row: 7; }
-.player > .engine-status { grid-row: 8; }
-
-/* Frame + date line under the picture. */
-.frame-caption {
-  margin: 0.35rem 0 0;
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-
 .frame-caption[hidden],
 .viewer-status[hidden] {
   display: none;
 }
 
-/* Explore cursor inside a dataset's keep-clear area (co2's date label):
-   a thin outline only, so the label stays readable. */
-.map-cursor.is-thin {
-  border-width: 1px;
-  outline-width: 1px;
-  box-shadow: none;
+.frame-caption {
+  margin: 0.45rem 0.25rem 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.explore-readout {
+  margin: 0.15rem 0.25rem 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.explore-readout.is-idle {
+  color: var(--text-muted);
 }
 
 /* ---------- Sound map (explore mode) ---------- */
@@ -630,7 +801,7 @@ a:hover {
 .sound-map {
   position: relative;
   z-index: 2;
-  border-radius: calc(var(--radius) - 4px);
+  border-radius: 0 0 var(--radius) var(--radius);
   cursor: crosshair;
   touch-action: none; /* a finger drag explores instead of scrolling */
 }
@@ -645,7 +816,7 @@ a:hover {
 }
 
 /* The cell under the cursor: white inner ring + black outer ring, so it shows
-   on any heatmap colour. */
+   on any picture colour. */
 .map-cursor {
   position: absolute;
   box-sizing: border-box;
@@ -662,69 +833,158 @@ a:hover {
   display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .map-cursor {
-    transition: none;
+/* Over the video's own label (co2 date): thin outline only. */
+.map-cursor.is-thin {
+  border-width: 1px;
+  outline-width: 1px;
+  box-shadow: none;
+}
+
+/* ---------- Control bar ---------- */
+
+.transport {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.transport-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.transport-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.25rem;
+  padding: 0 0.3rem;
+}
+
+.t-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.t-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+/* Play + Timeline fill the first row; Audio legend, Explore and Volume wrap
+   to the next (same order as the DOM and the Tab order). */
+.t-timeline {
+  flex: 1 1 calc(100% - 10rem);
+}
+
+.t-timeline .readout {
+  flex: none;
+}
+
+/* Phones: the timeline gets its own row, and a long date readout
+   ("1 / 78 · ~14 Jan 2020") may drop below the slider instead of pushing
+   the row wider than the screen. */
+@media (max-width: 520px) {
+  .t-timeline {
+    flex-basis: 100%;
+    flex-wrap: wrap;
   }
 }
 
-@media (forced-colors: active) {
-  .map-cursor {
-    border-color: Canvas;
-    outline-color: Highlight;
-  }
+.t-timeline input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 6rem;
 }
 
-.explore-readout {
-  margin: 0.35rem 0 0;
+#volume {
+  width: 6.5rem;
+}
+
+.readout {
+  min-width: 4.5ch;
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.explore-readout.is-idle {
-  color: var(--text-muted);
-}
-
-.btn-secondary {
+.t-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   min-height: 44px;
-  padding: 0.4rem 1rem;
-  font: inherit;
   font-weight: 600;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 2px solid var(--border);
-  border-radius: 999px;
   cursor: pointer;
 }
 
-.btn-secondary:hover {
-  border-color: var(--accent);
+.t-check input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
 }
 
-.btn-secondary[aria-disabled="true"] {
+.transport-help {
+  flex-basis: 100%;
+  margin: 0;
   color: var(--text-muted);
-  background: transparent;
-  border-style: dashed;
-  cursor: not-allowed;
+  font-size: 0.875rem;
 }
 
-/* ---------- Narration ---------- */
+/* ---------- Live narration card ---------- */
 
-/* Reserves two lines so controls below don't jump when the text changes. */
+.narration-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  margin-top: 0.9rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.narration-icon {
+  display: inline-flex;
+  margin-top: 0.15rem;
+  color: var(--accent);
+}
+
+.narration-icon svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.card-label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Reserves two lines so the controls below don't jump when the text changes. */
 .narration-caption {
   min-height: 2.9em;
-  margin: 0.5rem 0 0;
-  padding: 0.35rem 0.6rem;
-  border-left: 4px solid var(--accent);
-  background: var(--surface-2);
-  border-radius: 0 6px 6px 0;
-  font-size: 0.9rem;
+  margin: 0.15rem 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 600;
   line-height: 1.45;
 }
 
 .narration-caption.is-idle {
   color: var(--text-muted);
-  border-left-color: var(--border);
+  font-size: 1rem;
+  font-weight: 400;
 }
 
 .narration-caption.is-fresh {
@@ -732,18 +992,29 @@ a:hover {
 }
 
 @keyframes caption-in {
-  from {
-    opacity: 0.35;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0.35; }
+  to { opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .narration-caption.is-fresh {
-    animation: none;
-  }
+.card-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ---------- Sound settings ---------- */
+
+.sound-settings {
+  margin-top: 0.9rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.sound-settings h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
 }
 
 .narration-controls {
@@ -751,13 +1022,13 @@ a:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem 1rem;
-  margin: 0.5rem 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
 }
 
-/* A legend inside a flex fieldset is laid out on its own line; float keeps it
+/* A legend inside a flex fieldset sits on its own line; float keeps it
    inline with the options. */
 .narration-controls legend {
   float: left;
@@ -785,20 +1056,6 @@ a:hover {
   width: 1.2rem;
   height: 1.2rem;
   margin: 0;
-  accent-color: var(--accent);
-}
-
-/* ---------- Sound settings ---------- */
-
-.sound-settings {
-  margin-top: 0.75rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--border);
-}
-
-.sound-settings h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
 }
 
 .setting-row {
@@ -815,17 +1072,40 @@ a:hover {
   font-size: 0.875rem;
 }
 
+/* Switches added with addSwitch() (climate alarm): checkbox + button, help below. */
+.setting-switch {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.setting-switch .setting-row {
+  margin-top: 0;
+}
+
+.setting-switch-help {
+  margin-top: 0.15rem;
+}
+
 .legend-text {
-  margin: 0.4rem 0 0;
-  padding: 0.35rem 0.6rem;
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.7rem;
   border-left: 4px solid var(--accent);
   background: var(--surface-2);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: 0.9rem;
 }
 
 .legend-text[hidden] {
   display: none;
+}
+
+/* ---------- Status line ---------- */
+
+.engine-status {
+  margin: 0.6rem 0.3rem 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .video-status {
@@ -836,13 +1116,7 @@ a:hover {
   display: none;
 }
 
-.engine-status {
-  margin: 0.25rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-/* ---------- Info panel ---------- */
+/* ---------- Info panel (About this dataset) ---------- */
 
 .info-title {
   font-size: 1.05rem;
@@ -856,7 +1130,6 @@ a:hover {
 .info p {
   margin: 0 0 0.6rem;
 }
-
 
 .legend-bar {
   height: 14px;
@@ -885,62 +1158,86 @@ a:hover {
   margin-bottom: 0.4rem;
 }
 
-/* ---------- Motion ---------- */
+/* ---------- How to listen page (how-to-listen.html) ----------
+   One card per topic: 1 column on phones, 2 on tablets, 3 on wide screens.
+   DOM order = reading order; the grid fills row by row. */
 
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+.help {
+  padding-top: calc(var(--gap) + 0.25rem);
 }
 
-/* ---------- Windows High Contrast / forced colours ---------- */
-
-@media (forced-colors: active) {
-  :focus-visible {
-    outline-color: Highlight;
-  }
-
-  .panel {
-    border-color: CanvasText;
-  }
+.help-intro {
+  max-width: 46rem;
+  margin-bottom: var(--gap);
 }
 
-/* ---------- Buttons that look like links (open the shortcuts dialog) ---------- */
+.help-intro h1 {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.6rem, 1.3rem + 1vw, 2.1rem);
+}
 
-.link-button {
+.help-intro p {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  margin: 0;
   padding: 0;
-  font: inherit;
-  color: var(--accent);
-  text-decoration: underline;
-  background: none;
-  border: 0;
-  cursor: pointer;
+  list-style: none;
 }
 
-.link-button:hover {
+@media (min-width: 700px) {
+  .help-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .help-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.help-card h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.15rem;
   color: var(--accent-strong);
 }
 
-kbd {
-  display: inline-block;
-  min-width: 1.6em;
-  padding: 0 0.35em;
-  font-family: var(--mono);
-  font-size: 0.85em;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+.help-card p,
+.help-card ul,
+.help-card ol {
+  margin: 0 0 0.6rem;
+}
+
+.help-card > :last-child {
+  margin-bottom: 0;
+}
+
+.help-card ul,
+.help-card ol {
+  padding-left: 1.2rem;
+}
+
+.help-card li {
+  margin-bottom: 0.4rem;
+}
+
+.help-note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 /* ---------- Keyboard shortcuts dialog ---------- */
@@ -961,7 +1258,7 @@ kbd {
 }
 
 .sc-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(2, 6, 14, 0.7);
 }
 
 .sc-head {
@@ -979,7 +1276,7 @@ kbd {
 
 .sc-setting {
   padding: 0 1rem 0.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
 }
 
 .sc-body {
@@ -1009,7 +1306,7 @@ kbd {
   padding: 0.35rem 0.5rem;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid var(--surface-2);
+  border-bottom: 1px solid var(--line);
 }
 
 .sc-table thead th {
@@ -1036,34 +1333,108 @@ kbd {
   padding: 0.5rem 0.75rem;
   background: var(--surface-2);
   border-left: 4px solid var(--accent);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: 0.9rem;
 }
 
-/* ---------- How to listen ---------- */
+/* ---------- Footer ---------- */
 
-.about-body {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 0.25rem 1.5rem;
+.site-footer {
+  margin-top: 2rem;
+  padding: 1rem 0 2rem;
+  border-top: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
-.about-body h3 {
-  margin: 0.75rem 0 0.35rem;
-  font-size: 1rem;
+/* ---------- Reduced motion: no animations, transitions or glows ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .narration-caption.is-fresh {
+    animation: none;
+  }
+
+  .map-cursor {
+    transition: none;
+  }
+
+  .brand-icon {
+    filter: none;
+  }
+
+  .btn-play,
+  .viewer {
+    box-shadow: none;
+  }
+
+  .record-input:checked + .record-card {
+    box-shadow: 0 0 0 1px var(--accent);
+  }
 }
 
-.about-body p,
-.about-body ul,
-.about-body ol {
-  margin: 0 0 0.5rem;
-}
+/* ---------- Windows High Contrast / forced colours ---------- */
 
-.about-body ul,
-.about-body ol {
-  padding-left: 1.2rem;
-}
+@media (forced-colors: active) {
+  :focus-visible,
+  #records:focus,
+  #player:focus,
+  .help:focus {
+    outline-color: Highlight;
+  }
 
-.about-body li {
-  margin-bottom: 0.3rem;
+  .panel,
+  .record-card,
+  .transport-main,
+  .narration-card,
+  .sound-settings,
+  .video-strip,
+  .viewer {
+    border-color: CanvasText;
+  }
+
+  .record-photo {
+    display: none;
+  }
+
+  .record-card {
+    background: Canvas;
+  }
+
+  .record-text {
+    text-shadow: none;
+  }
+
+  .record-input:checked + .record-card {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .nav-link[aria-current="page"] {
+    border-bottom-color: CanvasText;
+  }
+
+  .help-card {
+    border-color: CanvasText;
+  }
+
+  .map-cursor {
+    border-color: Canvas;
+    outline-color: Highlight;
+  }
+
+  .brand-icon {
+    filter: none;
+  }
 }

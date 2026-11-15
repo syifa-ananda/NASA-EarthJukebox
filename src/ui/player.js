@@ -34,6 +34,21 @@ const SOUND_STATUS = {
   stub: 'Sound: simple fallback (Tone.js could not load)',
 };
 
+// Recorded instruments (sst strings, the default preset's piano) load on the
+// first Play; the video starts at once and the music joins when they are ready.
+// Shown after the engine name in the status line (not a live region) …
+const SAMPLE_STATUS = {
+  loading: ' · loading recorded instruments…',
+  ready: ' · recorded instruments ready',
+  fallback: ' · synthesised instruments (the recorded ones could not load)',
+};
+// … and spoken once: "loading" with the Play announcement, then the outcome.
+const SAMPLE_MESSAGES = {
+  loading: 'Loading recorded instruments…',
+  ready: 'Recorded instruments ready.',
+  fallback: 'Using synthesised instruments instead.',
+};
+
 /**
  * @param {{ transportEl: HTMLElement, soundStatusEl?: HTMLElement, videoStatusEl?: HTMLElement,
  *           narration?: ReturnType<import('./narration.js').createLiveNarration>,
@@ -47,7 +62,9 @@ export function createPlayer({
   narration = NO_NARRATION,
   onPlayingChange = () => {},
   onUserSeek = () => {}, // the user changed frame (timeline, J / L)
-  onExplore = () => {}, // the "Explore map" button
+  onExplore = () => {}, // the "Explore" button
+  onLegend = () => {}, // the "Audio legend" button
+  playNote = () => '', // extra words for the "Playing …" announcement
 }) {
   const s = {
     record: null,
@@ -88,14 +105,54 @@ export function createPlayer({
       if (s.video) s.video.loop = on;
     },
     onExplore: () => onExplore(),
+    onLegend: () => onLegend(),
   });
 
   audio.setVolume(DEFAULT_VOLUME / 100);
-  const showSoundStatus = (state) => {
-    if (soundStatusEl) soundStatusEl.textContent = SOUND_STATUS[state] ?? SOUND_STATUS.loading;
-  };
-  showSoundStatus(audio.engineStatus());
+
+  // ---------- sound status line and recorded instruments ----------
+
+  let samplesAnnounced = false; // "Loading recorded instruments…" was spoken; the outcome will be too
+
+  function showSoundStatus() {
+    if (!soundStatusEl) return;
+    const engine = audio.engineStatus();
+    const samples = SAMPLE_STATUS[audio.sampleState()];
+    soundStatusEl.textContent =
+      samples && (engine === 'tone' || engine === 'tone-idle') ? `${SOUND_STATUS.tone}${samples}` : SOUND_STATUS[engine] ?? SOUND_STATUS.loading;
+  }
+
+  /** Words added to "Playing …" when recorded instruments are about to load. */
+  function sampleNote() {
+    const state = audio.sampleState();
+    if (state !== 'idle' && state !== 'loading') return '';
+    samplesAnnounced = true;
+    return ` ${SAMPLE_MESSAGES.loading}`;
+  }
+
+  function onSampleState(state) {
+    showSoundStatus();
+    if (state === 'loading') {
+      // Loading that the Play announcement didn't cover: the first sound
+      // started from the legend, the alarm example or explore mode. Loading
+      // after a dataset switch (nothing playing) is only shown, not spoken.
+      if (!samplesAnnounced && (s.playing || audio.engineStatus() !== 'tone')) {
+        samplesAnnounced = true;
+        announce(SAMPLE_MESSAGES.loading, { force: true });
+      }
+    } else if (state === 'ready' || state === 'fallback') {
+      if (samplesAnnounced) announce(SAMPLE_MESSAGES[state], { force: true });
+      samplesAnnounced = false;
+    } else if (state !== 'idle') {
+      // 'none' / 'off': e.g. Tone.js failed and the simple fallback took over.
+      if (samplesAnnounced && audio.engineStatus() === 'stub') announce(SAMPLE_MESSAGES.fallback, { force: true });
+      samplesAnnounced = false;
+    }
+  }
+
+  showSoundStatus();
   audio.onEngineChange(showSoundStatus);
+  audio.onSampleStatus(onSampleState);
   audio.whenReady().then(() => {
     s.engineLoaded = true;
     refresh();
@@ -323,7 +380,7 @@ export function createPlayer({
     }
     setPlaying(true);
     render();
-    announce(`Playing ${s.record.title}.`, { force: true });
+    announce(`Playing ${s.record.title}.${sampleNote()}${playNote()}`, { force: true });
     narration.onPlay();
 
     const fail = (err) => {
@@ -497,6 +554,7 @@ export function createPlayer({
     narration.setContext(record, data);
     render();
     refresh();
+    showSoundStatus();
   }
 
   return {

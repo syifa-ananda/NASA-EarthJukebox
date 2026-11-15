@@ -13,9 +13,11 @@
 //   shortTitle   compact title for the record card
 //   title        fallback full title (index.json's title wins)
 //   soundHint    one line on how it sounds
-//   accent       decorative colour for the record label. Chosen to reach at
-//                least 3:1 against every panel background in both themes.
+//   accent       decorative tint for the record card's background gradient.
 //                It is never used for text and never carries meaning alone.
+//   photo        decorative full-bleed card photo (CSS background, never read
+//                out), relative to index.html. Credits: src/ui/img/cards/CREDITS.md.
+//                null = the plain card colour.
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                fallback and the legend bar; null if the colour key is unknown
 //   summary      { subject, high, preposition? } wording for "where is it highest"
@@ -40,21 +42,26 @@
 //                many frames in a row, narration says `text` once and waits
 //   emptyLabel   optional: what an empty grid cell (value 0) means, for explore.
 //                Wins over the engine's probe label when set.
+//   emptyWaterLabel  optional, world maps only: what an empty cell means where
+//                the map is water (sst: sea ice near the poles, not land).
 //   outside      optional { rows, label }: grid rows the instrument can't see at
 //                all; explore reads their (always 0) cells with `label`
 //   keepClear    optional { left, top, right, bottom } (fractions of the picture):
 //                part of the video that UI overlays must not cover (co2 date label)
 //   valueUnit.bands  optional [{ min, words }], highest min first: a short plain
 //                descriptor after the number ("about 28 °C, warm tropical water")
-//   sounds       visual→sound mappings ({ from, to, detail }) for the info panel,
-//                kept in line with src/audio/CONTRACT.md §6 and src/audio/presets/<id>.js.
+//   sounds       visual→sound mappings ({ from, to, detail, alarmOnly? }) for the info
+//                panel, kept in line with src/audio/CONTRACT.md §6–7 and the acoustic mix
+//                in src/audio/presets/<id>.js. alarmOnly lines show only while the
+//                climate alarm is switched on.
 
 export const RECORDS = [
   {
     id: 'sst',
+    photo: 'src/ui/img/cards/sst.jpg',
     shortTitle: 'Sea Surface Temperature',
     title: 'Global Sea Surface Currents and Temperature',
-    soundHint: 'Flowing pads whose melody follows the seasons',
+    soundHint: 'Slow strings and a wordless choir that follow the seasons',
     accent: '#d9480f',
     legend: {
       // The SVS colorbar: blue 0 °C → green → yellow → red 32 °C.
@@ -67,6 +74,9 @@ export const RECORDS = [
     gridKind: 'world-map',
     dataOn: 'water',
     westLon: -180,
+    // Empty cells over the sea are sea ice (Arctic, around Antarctica); the
+    // engine's label ("land, where there is no ocean data") is right for land only.
+    emptyWaterLabel: 'sea ice or no ocean data',
     aspect: 640 / 320,
     // docs/sources.md → sst → "Data dates: 2007-03-25 to 2008-03-03".
     time: { kind: 'dates', start: '2007-03-25', end: '2008-03-03', precision: 'month' },
@@ -84,18 +94,19 @@ export const RECORDS = [
     },
     sounds: [
       { from: 'The seasons', to: 'melody', detail: 'The melody climbs as the northern oceans warm toward the northern summer, is highest around August and September, and sinks again as the southern oceans warm.' },
-      { from: 'Change in the currents', to: 'pad swells', detail: 'When the currents change faster, the pads swell louder and the tempo lifts a little.' },
+      { from: 'Change in the currents', to: 'choir swells', detail: 'When the currents change faster, the wordless choir swells and the tempo lifts a little.' },
       { from: 'Brightness', to: 'loudness and tone', detail: 'A brighter picture sounds louder and more open.' },
-      { from: 'Warm water on the map', to: 'number of notes', detail: 'More warm ocean adds chord notes and soft bells on top.' },
+      { from: 'Warm water on the map', to: 'number of notes', detail: 'More warm ocean adds notes to the strings and a few harp notes on top.' },
       { from: 'Where the activity is', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-      { from: 'Explore mode', to: 'notes and ticks', detail: 'Warmer water plays higher notes; land plays a soft tick.' },
+      { from: 'Explore mode', to: 'notes and ticks', detail: 'Warmer water plays higher notes; land and sea ice play a soft tick.' },
     ],
   },
   {
     id: 'nightlights',
+    photo: 'src/ui/img/cards/nightlights.jpg',
     shortTitle: 'Night Lights',
     title: 'Change in Night Lights 2012–2023',
-    soundHint: 'Bells that multiply year by year as cities grow',
+    soundHint: 'Bamboo angklung and harp that fill in as cities grow',
     accent: '#a87a00',
     legend: {
       stops: ['#000000', '#2b2100', '#7a5c00', '#e0b000', '#fff2a8', '#ffffff'],
@@ -111,18 +122,19 @@ export const RECORDS = [
     // docs/data-contract.md §4: frames 5k to 5k+4 belong to year 2012 + k.
     time: { kind: 'yearBlocks', startYear: 2012, framesPerYear: 5 },
     sounds: [
-      { from: 'Amount of light', to: 'loudness and number of bells', detail: 'The more light on the map, the louder and brighter the music and the more bells ring, so it fills in from 2012 to 2023.' },
+      { from: 'Amount of light', to: 'loudness and number of notes', detail: 'The more light on the map, the louder and brighter the angklung plays and the more notes ring, so it fills in from 2012 to 2023.' },
       { from: 'Light level', to: 'pitch', detail: 'More light plays higher notes. It dips a little in 2020 and climbs most in 2022 and 2023.' },
-      { from: 'A new year', to: 'low chime', detail: 'A low chime marks the start of each year.' },
-      { from: 'Lit area', to: 'harmony', detail: 'More lit land adds notes to the quiet pad underneath.' },
+      { from: 'A new year', to: 'low angklung chord', detail: 'A low angklung chord marks the start of each year.' },
+      { from: 'Brightness', to: 'bass', detail: 'A wooden marimba bass holds the low root and fifth and grows with the light.' },
       { from: 'Where the lights are', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
     ],
   },
   {
     id: 'lightning',
+    photo: 'src/ui/img/cards/lightning.jpg',
     shortTitle: 'Lightning from the ISS',
     title: 'Lightning Events Detected from the ISS 2017–2023',
-    soundHint: 'A thunder thump for every storm burst',
+    soundHint: 'A hand-drum stroke for every storm burst',
     accent: '#3b7dd8',
     legend: {
       stops: ['#000000', '#2b2a10', '#6e6a12', '#c9c21a', '#ffef3a', '#fffbb0'],
@@ -143,18 +155,19 @@ export const RECORDS = [
     // Rows 0–2 and 13–15 are beyond about ±52°, which the ISS can't see (Person 1).
     outside: { rows: [0, 1, 2, 13, 14, 15], label: "outside the space station's view" },
     sounds: [
-      { from: 'Storm bursts', to: 'thunder and crackle', detail: 'Each storm bursting on the map is a deep thunder thump with a crackle on top. Busy moments sound like a drum roll.' },
-      { from: 'Where the storm bursts', to: 'left or right', detail: 'Each hit is placed where the storm bursts: west in your left ear, east in your right.' },
-      { from: 'Lightning activity', to: 'pad', detail: 'A quiet minor-key pad grows louder and higher once a year, when storms spread across the north in the northern summer.' },
-      { from: 'Change between frames', to: 'trembling and tempo', detail: 'When storms move fast, the pad trembles and the tempo speeds up.' },
+      { from: 'Storm bursts', to: 'hand drums', detail: 'Each storm bursting on the map is a hand-drum stroke. Busy moments become a drum roll with deep frame-drum booms, and the biggest bursts add a wooden log drum.' },
+      { from: 'Where the storm bursts', to: 'left or right', detail: 'Each stroke is placed where the storm bursts: west in your left ear, east in your right.' },
+      { from: 'Lightning activity', to: 'choir', detail: 'A soft wordless choir grows louder and higher once a year, when storms spread across the north in the northern summer.' },
+      { from: 'Change between frames', to: 'trembling and tempo', detail: 'When storms move fast, the choir trembles and the tempo speeds up.' },
       { from: 'Start and end', to: 'quiet', detail: 'The start and the last twenty seconds are quiet, while the video fades in and out.' },
     ],
   },
   {
     id: 'co2',
+    photo: 'src/ui/img/cards/co2.jpg',
     shortTitle: 'Carbon Dioxide',
     title: 'DYAMOND Global Carbon Dioxide',
-    soundHint: 'A low drone that thickens over East Asia and the Amazon',
+    soundHint: 'An overtone drone and drum heartbeat that follow the turning globe',
     accent: '#b14fc5',
     legend: {
       // Colorbar: faint grey/white haze for lower amounts, then tan → orange → red (highest).
@@ -175,9 +188,11 @@ export const RECORDS = [
     // docs/sources.md → co2: date label "14 Jan 2020 22:00" to "03 Mar 2020 08:00".
     time: { kind: 'dates', start: '2020-01-14T22:00', end: '2020-03-03T08:00', precision: 'day' },
     sounds: [
-      { from: 'Carbon dioxide in view', to: 'drone pitch and brightness', detail: 'When places with a lot of carbon dioxide come into view, the drone lifts and sounds brighter.' },
+      { from: 'Carbon dioxide in view', to: 'drone and overtone', detail: 'When places with a lot of carbon dioxide come into view, the drone and its whistling overtone sound higher.' },
       { from: 'Spread of high carbon dioxide', to: 'thicker, louder drone', detail: 'The more of the globe shows high carbon dioxide, the more voices the drone has.' },
-      { from: 'Highest levels', to: 'clashing note', detail: 'A tense, clashing note creeps in when the highest levels are in view.' },
+      { from: 'Carbon dioxide in view', to: 'drum heartbeat', detail: 'A frame-drum heartbeat beats faster when more carbon dioxide is in view and slower when less is.' },
+      { from: 'Highest levels in view', to: 'clashing note', detail: 'A tense, clashing note creeps in when the highest levels are in view.' },
+      { from: 'Most carbon dioxide in view', to: 'climate alarm', detail: 'A soft wordless voice joins while the most carbon dioxide is in view: East Asia at the start, the Amazon at the end. Switch it off under Sound settings.', alarmOnly: true },
       { from: 'The turning globe', to: 'the whole sound', detail: 'East Asia at the start and the Amazon at the end sound thick and tense; Africa and the Atlantic sound thin.' },
       { from: 'Position on screen', to: 'left or right', detail: 'Sounds on the left come from the left side of the globe on screen, sounds on the right from the right side.' },
     ],
@@ -207,6 +222,7 @@ export function mergeRecords(indexEntries = []) {
       credit: entry.credit ?? 'NASA/SVS',
       soundHint: cfg.soundHint,
       accent: cfg.accent ?? DEFAULT_ACCENT,
+      photo: cfg.photo ?? null,
       legend: cfg.legend ?? null,
       summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
       gridKind: cfg.gridKind ?? 'world-map',
@@ -217,6 +233,7 @@ export function mergeRecords(indexEntries = []) {
       valueUnit: cfg.valueUnit ?? null,
       quiet: cfg.quiet ?? null,
       emptyLabel: cfg.emptyLabel ?? null,
+      emptyWaterLabel: cfg.emptyWaterLabel ?? null,
       outside: cfg.outside ?? null,
       keepClear: cfg.keepClear ?? null,
       sounds: cfg.sounds ?? [],
@@ -237,6 +254,7 @@ export function mergeRecords(indexEntries = []) {
       credit: entry.credit ?? 'NASA/SVS',
       soundHint: 'NASA data, played as music',
       accent: DEFAULT_ACCENT,
+      photo: null,
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
       // Unknown new datasets: describe positions in the picture, never guess places.

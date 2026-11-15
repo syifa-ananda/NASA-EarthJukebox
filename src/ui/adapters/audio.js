@@ -24,6 +24,17 @@
 //   setVolume(v) 0–1, setRate(r)
 //   probe(x, y)                   { x, y, value, pan, empty, label, level, midi, note, sounded }
 //   playLegend()                  { text, duration, sounded }
+//   setAlarmEnabled(on), isAlarmEnabled()   Climate alarm on/off (engine default: on)
+//   previewAlarm({ seconds })     { text, seconds, sounded }: the alarm on its own, ~10 s.
+//                                 No way to stop it early in the engine yet.
+//   canSoundAlarm()               false on the stub fallback (it has no alarm voice)
+//   sampleState()                 Recorded instruments for the current dataset:
+//                                 'none' | 'idle' | 'loading' | 'ready' | 'fallback' | 'off'
+//                                 (engine getSampleStatus().state; always 'none' on the stub)
+//   onSampleStatus(fn)            fn(state) on every change of sampleState(); → unsubscribe
+//
+// Texts from the engine (legend, alarm preview) pass through fixWording()
+// (../preset-text.js) before the UI shows or speaks them.
 //
 // Still missing from the engine (see CONTRACT): previewFrame, setRate and a
 // fast-fade stop. preview() plays one probe() note instead, setRate is a no-op
@@ -33,6 +44,7 @@ import * as stub from './audio-stub.js';
 // Plain JS, no Tone.js: the legend text works on the stub too.
 import { getPreset } from '../../audio/presets/index.js';
 import { legendText } from '../../audio/engine/describe.js';
+import { presetText, fixWording } from '../preset-text.js';
 
 const ENGINE_URL = '../../audio/engine/index.js';
 
@@ -44,7 +56,23 @@ let volume = 0.7;
 let currentFile = null;
 let lastFrame = null;
 let sync = null; // { video, file, opts, detach }
+let alarmEnabled = true; // engine default (CONTRACT.md §5)
 const listeners = new Set();
+const sampleListeners = new Set();
+let lastSampleState = 'none';
+
+/** Tell the UI when the recorded-instrument state changes (deduplicated). */
+function emitSampleState(next) {
+  if (next === lastSampleState) return;
+  lastSampleState = next;
+  sampleListeners.forEach((fn) => {
+    try {
+      fn(next);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
 
 function setStatus(next) {
   if (status === next) return;
@@ -71,6 +99,20 @@ function matchingCell(frame) {
   return best;
 }
 
+/** { text, … } results from the engine, with the interim wording fixes applied. */
+function withFixedText(result) {
+  return Promise.resolve(result).then((r) => (r && typeof r.text === 'string' ? { ...r, text: fixWording(r.text) } : r));
+}
+
+/** Legend text from the plain-JS presets (stub fallback): always a string. */
+function stubLegendText() {
+  if (!currentFile) return '';
+  const preset = getPreset(currentFile.dataset, { alarm: alarmEnabled });
+  // describe.js joins preset fields as they are: make sure they are strings.
+  const safe = { ...preset, legendExtra: presetText(preset.legendExtra), alarm: { ...preset.alarm, legend: presetText(preset.alarm?.legend) } };
+  return fixWording(legendText(safe, { alarm: alarmEnabled }));
+}
+
 function engineImpl(m) {
   return {
     name: 'tone',
@@ -91,7 +133,8 @@ function engineImpl(m) {
     setVolume: (v) => m.setVolume(v),
     probe: (x, y) => m.probe(x, y),
     stop: () => m.pause(),
-    playLegend: () => m.playLegend(),
+    playLegend: () => withFixedText(m.playLegend()),
+    previewAlarm: (opts) => withFixedText(m.previewAlarm(opts)),
     syncToVideo: (video, file, opts) => m.syncToVideo(video, file, opts),
   };
 }
@@ -107,7 +150,9 @@ const stubImpl = {
   setVolume: (v) => stub.setVolume(v),
   probe: (x, y) => stub.probe(x, y),
   stop: () => stub.stop(),
-  playLegend: () => stub.playLegend({ text: currentFile ? legendText(getPreset(currentFile.dataset)) : '' }),
+  playLegend: () => stub.playLegend({ text: stubLegendText() }),
+  // The fallback has no alarm voice.
+  previewAlarm: () => ({ text: 'The climate alarm example needs the full sound engine, which could not start.', seconds: 0, sounded: false }),
   syncToVideo: (video, file, opts) => stub.syncToVideo(video, file, opts),
 };
 
@@ -128,12 +173,19 @@ function switchToStub() {
     sync.detach = stub.syncToVideo(video, file, opts);
   }
   setStatus('stub');
+  emitSampleState('none');
 }
 
 const ready = import(ENGINE_URL)
   .then((m) => {
     engine = m;
     impl = engineImpl(m);
+    m.setAlarmEnabled(alarmEnabled);
+    // Recorded instruments (CONTRACT.md §5): 'loading' → 'ready' or 'fallback'.
+    m.onSampleStatus?.((st) => {
+      if (impl === stubImpl) return;
+      emitSampleState(st?.state ?? 'none');
+    });
     setStatus('tone-idle');
   })
   .catch((err) => {
@@ -181,6 +233,12 @@ export function start() {
     () => {
       stub.close(); // the real engine runs; release the backup context
       setStatus('tone');
+      // init() can take a few seconds while recorded instruments load. If the
+      // video was paused meanwhile, the engine's play() (queued behind init)
+      // would still start the music after it: pause it again once that has run.
+      setTimeout(() => {
+        if (sync?.video?.paused && engine.isPlaying?.()) engine.pause();
+      }, 0);
     },
     async (err) => {
       console.warn('[audio] Tone.js could not start. Switching to the simple fallback sounds.', err);
@@ -245,3 +303,33 @@ export const setRate = () => {}; // speed is the video's playbackRate / the UI c
 export const probe = (...a) => call('probe', a);
 export const stop = (...a) => call('stop', a);
 export const playLegend = (...a) => call('playLegend', a);
+export const previewAlarm = (...a) => call('previewAlarm', a);
+
+/** Climate alarm on/off. Works before audio starts. */
+export function setAlarmEnabled(on) {
+  alarmEnabled = !!on;
+  engine?.setAlarmEnabled(alarmEnabled);
+}
+export const isAlarmEnabled = () => alarmEnabled;
+/** Whether the alarm can be heard at all (not on the stub fallback). */
+export const canSoundAlarm = () => impl !== stubImpl;
+
+/**
+ * Recorded instruments for the current dataset (see the list at the top).
+ * Read straight from the engine, so it is right before init() too: 'idle'
+ * means they will load on the first Play.
+ */
+export function sampleState() {
+  if (!engine || impl === stubImpl) return 'none';
+  try {
+    return engine.getSampleStatus?.().state ?? 'none';
+  } catch {
+    return 'none';
+  }
+}
+
+/** fn(state) whenever sampleState() changes. Returns an unsubscribe function. */
+export function onSampleStatus(fn) {
+  sampleListeners.add(fn);
+  return () => sampleListeners.delete(fn);
+}
