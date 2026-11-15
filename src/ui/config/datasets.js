@@ -15,10 +15,9 @@
 //   soundHint    one line on how it sounds
 //   accent       decorative tint for the record card's background gradient.
 //                It is never used for text and never carries meaning alone.
-//   icon         card icon from icons.js: 'waves' | 'city' | 'bolt' | 'co2'
-//   card         decorative card image, cropped with CSS from Person 1's check
-//                image: { image, size: [w, h], frame: [x, y, w, h] } where
-//                frame is the video part of docs/images/<id>/frame_middle.png
+//   photo        decorative full-bleed card photo (CSS background, never read
+//                out), relative to index.html. Credits: src/ui/img/cards/CREDITS.md.
+//                null = the plain card colour.
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                fallback and the legend bar; null if the colour key is unknown
 //   summary      { subject, high, preposition? } wording for "where is it highest"
@@ -43,6 +42,8 @@
 //                many frames in a row, narration says `text` once and waits
 //   emptyLabel   optional: what an empty grid cell (value 0) means, for explore.
 //                Wins over the engine's probe label when set.
+//   emptyWaterLabel  optional, world maps only: what an empty cell means where
+//                the map is water (sst: sea ice near the poles, not land).
 //   outside      optional { rows, label }: grid rows the instrument can't see at
 //                all; explore reads their (always 0) cells with `label`
 //   keepClear    optional { left, top, right, bottom } (fractions of the picture):
@@ -57,8 +58,7 @@
 export const RECORDS = [
   {
     id: 'sst',
-    icon: 'waves',
-    card: { image: 'docs/images/sst/frame_middle.png', size: [1072, 354], frame: [16, 58, 512, 256] },
+    photo: 'src/ui/img/cards/sst.jpg',
     shortTitle: 'Sea Surface Temperature',
     title: 'Global Sea Surface Currents and Temperature',
     soundHint: 'Slow strings and a wordless choir that follow the seasons',
@@ -74,6 +74,9 @@ export const RECORDS = [
     gridKind: 'world-map',
     dataOn: 'water',
     westLon: -180,
+    // Empty cells over the sea are sea ice (Arctic, around Antarctica); the
+    // engine's label ("land, where there is no ocean data") is right for land only.
+    emptyWaterLabel: 'sea ice or no ocean data',
     aspect: 640 / 320,
     // docs/sources.md → sst → "Data dates: 2007-03-25 to 2008-03-03".
     time: { kind: 'dates', start: '2007-03-25', end: '2008-03-03', precision: 'month' },
@@ -95,13 +98,12 @@ export const RECORDS = [
       { from: 'Brightness', to: 'loudness and tone', detail: 'A brighter picture sounds louder and more open.' },
       { from: 'Warm water on the map', to: 'number of notes', detail: 'More warm ocean adds notes to the strings and a few harp notes on top.' },
       { from: 'Where the activity is', to: 'left or right', detail: 'West is in your left ear, east in your right.' },
-      { from: 'Explore mode', to: 'notes and ticks', detail: 'Warmer water plays higher notes; land plays a soft tick.' },
+      { from: 'Explore mode', to: 'notes and ticks', detail: 'Warmer water plays higher notes; land and sea ice play a soft tick.' },
     ],
   },
   {
     id: 'nightlights',
-    icon: 'city',
-    card: { image: 'docs/images/nightlights/frame_middle.png', size: [1016, 354], frame: [16, 58, 456, 256] },
+    photo: 'src/ui/img/cards/nightlights.jpg',
     shortTitle: 'Night Lights',
     title: 'Change in Night Lights 2012–2023',
     soundHint: 'Bamboo angklung and harp that fill in as cities grow',
@@ -129,8 +131,7 @@ export const RECORDS = [
   },
   {
     id: 'lightning',
-    icon: 'bolt',
-    card: { image: 'docs/images/lightning/frame_middle.png', size: [1072, 354], frame: [16, 58, 512, 256] },
+    photo: 'src/ui/img/cards/lightning.jpg',
     shortTitle: 'Lightning from the ISS',
     title: 'Lightning Events Detected from the ISS 2017–2023',
     soundHint: 'A hand-drum stroke for every storm burst',
@@ -163,8 +164,7 @@ export const RECORDS = [
   },
   {
     id: 'co2',
-    icon: 'co2',
-    card: { image: 'docs/images/co2/frame_middle.png', size: [1016, 354], frame: [16, 58, 456, 256] },
+    photo: 'src/ui/img/cards/co2.jpg',
     shortTitle: 'Carbon Dioxide',
     title: 'DYAMOND Global Carbon Dioxide',
     soundHint: 'An overtone drone and drum heartbeat that follow the turning globe',
@@ -222,8 +222,7 @@ export function mergeRecords(indexEntries = []) {
       credit: entry.credit ?? 'NASA/SVS',
       soundHint: cfg.soundHint,
       accent: cfg.accent ?? DEFAULT_ACCENT,
-      icon: cfg.icon ?? 'wave',
-      card: cfg.card ?? null,
+      photo: cfg.photo ?? null,
       legend: cfg.legend ?? null,
       summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
       gridKind: cfg.gridKind ?? 'world-map',
@@ -234,6 +233,7 @@ export function mergeRecords(indexEntries = []) {
       valueUnit: cfg.valueUnit ?? null,
       quiet: cfg.quiet ?? null,
       emptyLabel: cfg.emptyLabel ?? null,
+      emptyWaterLabel: cfg.emptyWaterLabel ?? null,
       outside: cfg.outside ?? null,
       keepClear: cfg.keepClear ?? null,
       sounds: cfg.sounds ?? [],
@@ -254,8 +254,7 @@ export function mergeRecords(indexEntries = []) {
       credit: entry.credit ?? 'NASA/SVS',
       soundHint: 'NASA data, played as music',
       accent: DEFAULT_ACCENT,
-      icon: 'wave',
-      card: null,
+      photo: null,
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
       // Unknown new datasets: describe positions in the picture, never guess places.

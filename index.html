@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23111'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d9480f'/%3E%3Ccircle cx='16' cy='16' r='1.5' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/ui/styles.css">
 </head>
-<body>
+<body class="page-jukebox">
   <a class="skip-link" href="#player">Skip to player</a>
 
   <header class="site-header">
@@ -25,8 +25,13 @@
           <p class="tagline">Turn Earth data into sound</p>
         </div>
       </div>
-      <nav class="site-nav" aria-label="Help">
-        <a class="nav-link" href="#about">How to listen</a>
+      <!-- Same nav on how-to-listen.html. data-keep-state links carry the settings
+           hash across (src/ui/page-links.js). -->
+      <nav class="site-nav" aria-label="Main">
+        <ul class="nav-list">
+          <li><a class="nav-link" href="index.html" aria-current="page" data-keep-state>Jukebox</a></li>
+          <li><a class="nav-link" href="how-to-listen.html" data-keep-state>How to listen</a></li>
+        </ul>
         <!-- Opens the shortcuts dialog. In the header so it is reachable early in the
              Tab order, even with single-key shortcuts off. -->
         <button type="button" class="btn-outline" id="shortcuts-btn" data-open-shortcuts>Keyboard shortcuts</button>
@@ -93,79 +98,14 @@
       </p>
     </section>
 
-    <aside id="info" class="panel info" aria-labelledby="info-heading">
+    <!-- On wide screens this panel scrolls on its own; main.js then makes it a
+         Tab stop (tabindex="0") so it can be scrolled with the keyboard. -->
+    <aside id="info" class="panel info" role="region" aria-label="About this dataset">
       <h2 id="info-heading">About this dataset</h2>
       <div id="info-body">
         <p class="muted">Choose a dataset to see what it shows and how it sounds.</p>
       </div>
     </aside>
-
-    <section id="about" class="panel about" tabindex="-1" aria-labelledby="about-heading">
-      <h2 id="about-heading">How to listen</h2>
-      <div id="about-body" class="about-body">
-        <section aria-labelledby="about-what">
-          <h3 id="about-what">What this is</h3>
-          <p>The Earth Information Jukebox turns NASA pictures of our planet into music you can listen to and explore.
-            It is built for blind and low-vision listeners, and for everyone else.</p>
-        </section>
-
-        <section aria-labelledby="about-start">
-          <h3 id="about-start">How to start</h3>
-          <ol>
-            <li>Choose a dataset from the list.</li>
-            <li>Press Play. Sound only starts after you press it.</li>
-            <li>Use headphones if you can: sounds move between your left and right ear.</li>
-          </ol>
-        </section>
-
-        <section aria-labelledby="about-hear">
-          <h3 id="about-hear">What you hear</h3>
-          <ul>
-            <li><strong>Pitch:</strong> higher notes mean more of what the record measures, such as more city light or more lightning.
-              In the sea temperature record the melody follows the seasons.</li>
-            <li><strong>Loudness and brightness</strong> of the sound follow how bright or busy the picture is.</li>
-            <li><strong>Left or right</strong> tells you where on the picture things are happening.</li>
-            <li><strong>Drum strokes</strong> in the lightning record are storms bursting.</li>
-            <li><strong>A soft wordless voice</strong> in the carbon dioxide record marks the moments when the most carbon dioxide is in view.
-              This is the climate alarm; you can switch it off under Sound settings.</li>
-          </ul>
-          <p>To hear the scale first, press <strong>Audio legend</strong> (or <kbd>G</kbd>): it plays the notes from the lowest to the highest value.</p>
-        </section>
-
-        <section aria-labelledby="about-explore">
-          <h3 id="about-explore">Explore the picture</h3>
-          <p>Press <kbd>E</kbd> or the Explore button, then use the arrow keys to move a sound cursor over the picture.
-            Each step plays the value under the cursor and says where you are.
-            <kbd>W</kbd> repeats where you are, <kbd>C</kbd> compares the spot with the average, and <kbd>Escape</kbd> takes you back to Play.
-            A soft tick means there is no data in that spot.</p>
-        </section>
-
-        <section aria-labelledby="about-narration">
-          <h3 id="about-narration">Narration</h3>
-          <p>Under Sound settings, choose Off, Brief or Detailed. While a record plays, your screen reader (such as VoiceOver, NVDA or JAWS)
-            reads a short description every few seconds when something changes. The same words appear under the video for sighted listeners.</p>
-        </section>
-
-        <section aria-labelledby="about-records">
-          <h3 id="about-records">The four records</h3>
-          <ul>
-            <li><strong>Sea surface temperature:</strong> one year of ocean currents and water temperature, March 2007 to March 2008.
-              It shows the seasons and the currents, not a climate trend.</li>
-            <li><strong>Night lights:</strong> city lights from 2012 to 2023. We re-paced NASA's video to one year every 2.5 seconds so the music can follow.</li>
-            <li><strong>Lightning from the space station:</strong> about 2017 to 2023, with no exact dates.
-              The station can't see beyond about 52 degrees north or south.</li>
-            <li><strong>Carbon dioxide:</strong> a tour around a turning globe, January to March 2020.
-              The sound follows the part of the globe facing you, and values are relative: the colour scale has no units.</li>
-          </ul>
-        </section>
-
-        <section aria-labelledby="about-more">
-          <h3 id="about-more">Shortcuts and credits</h3>
-          <p><button type="button" class="link-button" data-open-shortcuts>Show all keyboard shortcuts</button> (or press <kbd>?</kbd>).</p>
-          <p>Data and visualizations: <a href="https://svs.gsfc.nasa.gov/">NASA's Scientific Visualization Studio</a>.</p>
-        </section>
-      </div>
-    </section>
   </main>
 
   <footer class="site-footer">

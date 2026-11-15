@@ -105,8 +105,12 @@ export function installShortcuts(actions) {
     if (!action) return;
     // Holding a key must not flap play/pause, spin through levels or repeat speech.
     if (event.repeat && action !== 'back' && action !== 'forward') return;
+    // A page may install only some actions (how-to-listen.html: just "?"):
+    // other keys keep their normal behaviour there.
+    const run = actions[action];
+    if (!run) return;
 
     event.preventDefault();
-    actions[action]?.();
+    run();
   });
 }

@@ -1,28 +1,19 @@
-// Record picker: a native radio group styled as vinyl record cards.
+// Record picker: a native radio group styled as photo cards.
 // Native radios give us the expected keyboard model for free: Tab enters and
 // leaves the group as one stop, and arrow keys move (and select) within it.
 
 import { h } from './dom.js';
 import { statusLabel } from './config/datasets.js';
-import { icon } from './icons.js';
 
 /**
- * Decorative crop of Person 1's check image: just the video part of
- * docs/images/<id>/frame_middle.png. The art box has the same shape as that
- * part, so background-size / -position in % crop it exactly.
+ * Decorative full-bleed photo behind the card text (config → photo). An
+ * absolute URL, so it doesn't depend on which file sets the style. A dark
+ * scrim on top (CSS) keeps the words readable; a missing file just leaves the
+ * plain card colour.
  */
-function artStyle(card) {
-  if (!card) return null;
-  const [imgW, imgH] = card.size;
-  const [fx, fy, fw, fh] = card.frame;
-  return {
-    // Absolute URL: a url() inside a CSS variable resolves against the
-    // stylesheet (src/ui/), not the page.
-    '--art-image': `url("${new URL(card.image, document.baseURI).href}")`,
-    '--art-size': `${((imgW / fw) * 100).toFixed(2)}% auto`,
-    '--art-pos': `${((fx / (imgW - fw)) * 100).toFixed(2)}% ${((fy / (imgH - fh)) * 100).toFixed(2)}%`,
-    '--art-aspect': `${fw} / ${fh}`,
-  };
+function photoStyle(photo) {
+  if (!photo) return null;
+  return { backgroundImage: `url("${new URL(photo, document.baseURI).href}")` };
 }
 
 function recordItem(record) {
@@ -40,12 +31,11 @@ function recordItem(record) {
     'aria-describedby': `${base}-hint`,
   });
 
-  const art = artStyle(record.card);
+  const photo = photoStyle(record.photo);
   const card = h(
     'label',
-    { for: base, class: `record-card${art ? ' has-art' : ''}`, '--record-accent': record.accent },
-    art && h('span', { class: 'record-art', 'aria-hidden': 'true', style: art }),
-    icon(record.icon, 'record-icon'),
+    { for: base, class: `record-card${photo ? ' has-photo' : ''}`, '--record-accent': record.accent },
+    photo && h('span', { class: 'record-photo', 'aria-hidden': 'true', style: photo }),
     h(
       'span',
       { class: 'record-text' },

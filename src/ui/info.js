@@ -6,6 +6,7 @@ import { cssGradient } from './color.js';
 import { statusLabel } from './config/datasets.js';
 // Plain JS, no Tone.js: works even when the audio engine falls back to the stub.
 import { getPreset } from '../audio/presets/index.js';
+import { presetText } from './preset-text.js';
 
 function legendBlock(record) {
   const parts = [];
@@ -28,9 +29,9 @@ function legendBlock(record) {
 
 function soundList(record, alarm) {
   // Person 2's own description of the preset comes first (with or without its
-  // alarm sentence). Unknown ids get the engine's default preset, which is
-  // what actually plays.
-  const description = getPreset(record.id, { alarm }).soundDescription ?? '';
+  // alarm sentence), resolved for the instrument mix that plays (acoustic).
+  // Unknown ids get the engine's default preset, which is what actually plays.
+  const description = presetText(getPreset(record.id, { alarm }).soundDescription);
   // Lines marked alarmOnly describe the climate alarm: hidden while it is off.
   const sounds = record.sounds.filter((s) => alarm || !s.alarmOnly);
   if (!sounds.length) {

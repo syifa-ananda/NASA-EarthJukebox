@@ -15,10 +15,12 @@ import { createExplore } from './explore.js';
 import { createAlarmSetting, ALARM_DEFAULT } from './alarm-setting.js';
 import * as audio from './adapters/audio.js';
 import { getPreset } from '../audio/presets/index.js';
+import { handleInPageLinks, updateStateLinks } from './page-links.js';
 
 const nowPlaying = document.getElementById('now-playing');
 const infoBody = document.getElementById('info-body');
 const recordList = document.getElementById('record-list');
+const infoPanel = document.getElementById('info');
 
 // Wait this long after the last selection change before announcing, so
 // arrowing quickly through the list doesn't queue up a message per record.
@@ -58,6 +60,8 @@ function writeHash() {
   if (alarmSetting && alarmSetting.isEnabled() !== ALARM_DEFAULT) params.set('alarm', alarmSetting.isEnabled() ? 'on' : 'off');
   // replaceState: no history entry per arrow press, and no hashchange event.
   history.replaceState(null, '', `#${params}`);
+  // The header nav carries the same settings to "How to listen" and back.
+  updateStateLinks(params);
 }
 
 // ---------- Player, narration, shortcuts ----------
@@ -78,7 +82,7 @@ const player = createPlayer({
   onUserSeek: (index) => explore.onFrameChange(index),
   onExplore: () => explore.focusMap(),
   onLegend: () => soundSettings.playLegend(),
-  // The engine can't stop an alarm example early (no API yet), so say so.
+  // The engine can't stop an alarm example early (no stopAlarmPreview() yet), so say so.
   playNote: () => (alarmSetting?.previewRemaining() > 0 ? ' The music joins when the alarm example ends.' : ''),
 });
 
@@ -137,7 +141,7 @@ installShortcuts({
 
 const shortcutsDialog = createShortcutsDialog(document.getElementById('shortcuts-dialog'));
 
-// The header button and the "How to listen" button both open it.
+// The header button opens it (the same module serves how-to-listen.html).
 document.addEventListener('click', (event) => {
   const opener = event.target.closest('[data-open-shortcuts]');
   if (opener) shortcutsDialog.open(opener);
@@ -177,6 +181,7 @@ async function selectRecord(id, { announceIt = true } = {}) {
   writeHash();
   nowPlaying.textContent = record.title;
   renderInfo(infoBody, record, { alarm: alarmSetting.isEnabled() });
+  infoPanel.scrollTop = 0; // wide screens: the panel scrolls on its own; start at the top
   alarmSetting.setContext(record, null);
   if (announceIt) scheduleAnnouncement(record);
 
@@ -199,26 +204,26 @@ async function selectRecord(id, { announceIt = true } = {}) {
   }
 }
 
-// ---------- In-page links ----------
-// Skip link and nav links move focus to their section without overwriting the
-// #record=…&narration=… hash, so a reload still restores both.
+// ---------- "About this dataset": its own scroll area on wide screens ----------
+// In the 3-column layout (styles.css: min-width 1200px, min-height 600px) the
+// panel scrolls internally, so it becomes a Tab stop that scrolls with the
+// arrow keys, Page Up / Down, Home and End. Elsewhere the page scrolls and the
+// panel needs no Tab stop. Its role and name (index.html) stay the same.
 
-function handleInPageLinks(event) {
-  if (event.defaultPrevented || event.button !== 0) return;
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const link = event.target.closest('a[href^="#"]');
-  if (!link) return;
-  const target = document.getElementById(link.getAttribute('href').slice(1));
-  if (!target) return;
-  event.preventDefault();
-  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
-  target.focus();
+const WIDE_LAYOUT = window.matchMedia('(min-width: 1200px) and (min-height: 600px)');
+
+function syncInfoScrollStop() {
+  if (WIDE_LAYOUT.matches) infoPanel.setAttribute('tabindex', '0');
+  else infoPanel.removeAttribute('tabindex');
 }
 
 // ---------- Startup ----------
 
 async function init() {
+  // Skip link: focus the player without overwriting the settings hash.
   document.addEventListener('click', handleInPageLinks);
+  syncInfoScrollStop();
+  WIDE_LAYOUT.addEventListener('change', syncInfoScrollStop);
 
   const fromHash = readHash();
   if (fromHash.narration) setNarrationLevel(fromHash.narration, { announceIt: false });
