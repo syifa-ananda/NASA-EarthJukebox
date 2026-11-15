@@ -47,7 +47,7 @@ export default {
     hitWindow: 0.5,
     filterHz: [400, 3000],
     reverb: { decay: 5, wet: 0.35 },
-    trimDb: { acoustic: -5.5, electronic: -2.5 },
+    trimDb: { acoustic: -5, electronic: -2.5 },
   },
 
   mixMapping: {

@@ -1,5 +1,5 @@
-// Test page logic: manual sliders, preset switching, mock playback, video
-// sync, audio legend, recording and the keyboard probe. Uses only the public
+// Test page logic: manual sliders, preset switching, data playback, automatic
+// video sync, audio legend, recording and the keyboard probe. Uses only the public
 // engine API (engine/index.js).
 
 import * as audio from '../engine/index.js';
@@ -24,12 +24,13 @@ const $ = (id) => document.getElementById(id);
 const ui = {
   play: $('play'), volume: $('volume'), volumeOut: $('volume-out'), preset: $('preset'),
   soundDesc: $('sound-description'), legend: $('legend'), legendOut: $('legend-out'),
-  mix: $('mix'), alarm: $('alarm'), alarmPreview: $('alarm-preview'), alarmInfo: $('alarm-info'), alarmState: $('alarm-state'), switches: $('switches'),
-  dataset: $('dataset'), mock: $('mock'), speed: $('speed'), frame: $('frame'), frameOut: $('frame-out'),
-  mockStatus: $('mock-status'), normalize: $('normalize'), ranges: $('ranges'),
-  video: $('video'), videoFile: $('video-file'), videoStatus: $('video-status'), sync: $('sync'),
+  mix: $('mix'), alarm: $('alarm'), alarmPreview: $('alarm-preview'),
+  sampled: $('sampled'), samplesStatus: $('samples-status'), alarmInfo: $('alarm-info'), alarmState: $('alarm-state'), switches: $('switches'),
+  dataset: $('dataset'), dataPlay: $('data-play'), speed: $('speed'), frame: $('frame'), frameOut: $('frame-out'),
+  dataStatus: $('data-status'), mockBadge: $('mock-badge'), normalize: $('normalize'), ranges: $('ranges'),
+  video: $('video'), videoFile: $('video-file'), videoStatus: $('video-status'),
   record: $('record'), recordCancel: $('record-cancel'), recordLink: $('record-link'),
-  recordStatus: $('record-status'), recordMock: $('record-mock'),
+  recordStatus: $('record-status'),
   sliders: $('sliders'), probe: $('probe'), canvas: $('probe-canvas'), probeOut: $('probe-out'),
   announce: $('announce'), describe: $('describe'), params: $('params'),
 };
@@ -39,9 +40,9 @@ let frame = { t: 0, brightness: 0.5, warmth: 0.5, density: 0.5, pan: 0, motion: 
 let entries = {};           // index.json entries by id
 let data = null;            // loaded features.json
 let ranges = null;          // analyzeRanges() result for `data`
-let index = 0;              // current mock frame
-let mockTimer = null;
-let detachSync = null;      // set while the video is synced
+let index = 0;              // current data frame
+let dataTimer = null;       // set while "Play data" steps through the frames
+let detachSync = null;      // set while the audio follows the video
 let recording = null;       // { cancelled } while recording
 let localVideoUrl = null;
 let cursor = { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
@@ -93,7 +94,7 @@ async function buildDatasetMenu() {
     }
     await selectDataset();
   } catch (err) {
-    ui.mockStatus.textContent = `Could not load public/data/index.json (${err.message}). Serve the repo root.`;
+    ui.dataStatus.textContent = `Could not load public/data/index.json (${err.message}). Serve the repo root.`;
   }
 }
 
@@ -147,6 +148,7 @@ function showPresetOptions() {
   const preset = audio.currentPreset();
   const a = preset.alarm;
   ui.alarmPreview.disabled = !a?.on;
+  showSamples();
   ui.alarmInfo.textContent = a?.on
     ? `This preset's alarm fades in when ${a.field} reaches ${a.threshold} of this file's range ` +
       `(off again below ${(a.threshold - (a.hysteresis ?? 0.05)).toFixed(2)}).`
@@ -163,6 +165,20 @@ function showPresetOptions() {
     ui.switches.append(label);
   }
   showAlarmState();
+}
+
+/** Live region: "Loading samples..." and what happened. */
+function showSamples(status = audio.getSampleStatus()) {
+  const what = Object.keys(status.kinds).join(' and ') || 'strings and piano';
+  const text = {
+    none: '',
+    idle: `Recorded ${what} load when audio starts.`,
+    loading: 'Loading samples…',
+    ready: `Recorded ${what} ready.`,
+    fallback: `Samples could not load (or took over 8 seconds): using the synth ${what} instead.`,
+    off: `Using the synth ${what}.`,
+  }[status.state];
+  if (ui.samplesStatus.textContent !== text) ui.samplesStatus.textContent = text;
 }
 
 function showAlarmState() {
@@ -195,19 +211,18 @@ async function playLegend() {
 async function selectDataset() {
   const entry = entries[ui.dataset.value];
   if (!entry) return;
-  stopMock();
+  stopData();
   stopSync();
   try {
     data = await fetch(new URL(entry.features, DATA_URL)).then((r) => r.json());
   } catch (err) {
     data = null;
-    ui.mockStatus.textContent = `Could not load ${entry.features}: ${err.message}`;
+    ui.dataStatus.textContent = `Could not load ${entry.features}: ${err.message}`;
     return;
   }
   ui.frame.max = data.frameCount - 1;
-  ui.mockStatus.textContent = `${data.title}: ${data.frameCount} frames at ${data.fps} fps` +
-    (entry.mock ? ' (mock data).' : '.');
-  ui.recordMock.hidden = !entry.mock;
+  ui.dataStatus.textContent = `${data.title}: ${data.frameCount} frames at ${data.fps} fps.`;
+  ui.mockBadge.hidden = !entry.mock;
 
   // Matching preset (or default) + this file's ranges.
   ui.preset.value = audio.hasPreset(data.dataset) ? data.dataset : 'default';
@@ -215,9 +230,10 @@ async function selectDataset() {
   applyNormalizeSetting();
   showRanges();
   showSoundDescription();
-  loadDatasetVideo(entry);
   lastAnnounce = 0;          // announce the new dataset straight away
-  showMockFrame(0);
+  showDataFrame(0);
+  await loadDatasetVideo(entry);
+  startSync();               // the audio follows the new video straight away
 }
 
 function applyNormalizeSetting() {
@@ -238,9 +254,9 @@ function showRanges() {
   }
 }
 
-// --------------------------------------------------------------------------- mock playback
+// --------------------------------------------------------------------------- data playback (without the video)
 
-function showMockFrame(i, frameSeconds) {
+function showDataFrame(i, frameSeconds) {
   index = i;
   frame = { ...data.frames[i] };
   ui.frame.value = i;
@@ -250,40 +266,47 @@ function showMockFrame(i, frameSeconds) {
 }
 
 function step() {
-  showMockFrame((index + 1) % data.frameCount);
+  showDataFrame((index + 1) % data.frameCount);
   scheduleNext();
 }
 
 function scheduleNext() {
   const delay = 1000 / (data.fps * Number(ui.speed.value));   // fps from features.json x speed
-  mockTimer = setTimeout(step, delay);
+  dataTimer = setTimeout(step, delay);
 }
 
-async function toggleMock() {
-  if (mockTimer) {
-    stopMock();
+/** Play data: step through the frames on a timer, without the video (speed menu applies). */
+async function toggleData() {
+  if (dataTimer) {
+    stopData();
+    startSync();             // back to following the video
     return;
   }
   if (!data) return;
-  stopSync();
+  ui.video.pause();
+  stopSync();                // the video would otherwise pause the audio
   if (!audio.isPlaying()) await togglePlay();
-  ui.mock.setAttribute('aria-pressed', 'true');
-  ui.mock.textContent = 'Stop mock';
+  ui.dataPlay.setAttribute('aria-pressed', 'true');
+  ui.dataPlay.textContent = 'Stop data';
   scheduleNext();
 }
 
-function stopMock() {
-  clearTimeout(mockTimer);
-  mockTimer = null;
-  ui.mock.setAttribute('aria-pressed', 'false');
-  ui.mock.textContent = 'Play mock';
+function stopData() {
+  clearTimeout(dataTimer);
+  dataTimer = null;
+  ui.dataPlay.setAttribute('aria-pressed', 'false');
+  ui.dataPlay.textContent = 'Play data';
 }
 
 // --------------------------------------------------------------------------- video sync
 
-/** Try the dataset's own video (index.json `video`); fine if it doesn't exist yet. */
+/** Load the dataset's own video (index.json `video`). Selecting a dataset replaces a local file. */
 async function loadDatasetVideo(entry) {
-  if (localVideoUrl) return;   // a local file the user picked wins
+  if (localVideoUrl) {
+    URL.revokeObjectURL(localVideoUrl);
+    localVideoUrl = null;
+    ui.videoFile.value = '';
+  }
   const url = new URL(entry.video, DATA_URL);
   try {
     const res = await fetch(url, { method: 'HEAD' });
@@ -293,31 +316,27 @@ async function loadDatasetVideo(entry) {
   } catch {
     ui.video.removeAttribute('src');
     ui.video.load();
-    ui.videoStatus.textContent = `No video at public/data/${entry.video} yet. Pick a local video file to test syncing.`;
+    ui.videoStatus.textContent = `No video at public/data/${entry.video}. Use "Play data" instead, or pick a local video.`;
   }
 }
 
 function useLocalVideo() {
   const file = ui.videoFile.files[0];
   if (!file) return;
-  stopSync();
   if (localVideoUrl) URL.revokeObjectURL(localVideoUrl);
   localVideoUrl = URL.createObjectURL(file);
-  ui.video.src = localVideoUrl;
+  ui.video.src = localVideoUrl;       // the sync stays attached to the same <video>
   ui.videoStatus.textContent = `Using local file "${file.name}" with the ${data?.title ?? ''} data.`;
 }
 
-async function toggleSync() {
-  if (detachSync) {
-    stopSync();
-    return;
-  }
-  if (!data || !ui.video.currentSrc) {
-    ui.videoStatus.textContent = 'Load a video first (dataset video or a local file).';
-    return;
-  }
-  stopMock();
-  await audio.init();          // the click is the user gesture
+/**
+ * Make the audio follow the video. Called whenever a dataset is selected (the
+ * old sync is detached first). Audio starts when the video's play button is
+ * pressed: that click is the user gesture browsers need.
+ */
+function startSync() {
+  stopSync();
+  if (!data) return;
   detachSync = audio.syncToVideo(ui.video, data, {
     onFrame(f, i, params) {
       index = i;
@@ -330,9 +349,6 @@ async function toggleSync() {
     },
   });
   applyNormalizeSetting();     // syncToVideo reloads the ranges
-  ui.sync.setAttribute('aria-pressed', 'true');
-  ui.sync.textContent = 'Stop syncing';
-  ui.videoStatus.textContent = 'Synced: play, pause or seek the video and the audio follows.';
 }
 
 function stopSync() {
@@ -340,8 +356,6 @@ function stopSync() {
   detachSync();
   detachSync = null;
   setPlayButton();
-  ui.sync.setAttribute('aria-pressed', 'false');
-  ui.sync.textContent = 'Sync audio to video';
 }
 
 // --------------------------------------------------------------------------- recording
@@ -356,7 +370,10 @@ function extensionFor(type) {
 }
 
 function setRecordingUi(on) {
-  for (const el of [ui.record, ui.dataset, ui.preset, ui.mix, ui.mock, ui.sync, ui.frame, ui.speed, ui.play]) el.disabled = on;
+  for (const el of [ui.record, ui.dataset, ui.preset, ui.mix, ui.sampled, ui.dataPlay, ui.videoFile, ui.frame, ui.speed, ui.play]) {
+    el.disabled = on;
+  }
+  ui.video.controls = !on;   // no video playback while recording
   ui.recordCancel.hidden = !on;
 }
 
@@ -367,7 +384,8 @@ async function recordFullPass() {
     return;
   }
   const ready = audio.init();  // start audio inside the click (user gesture)
-  stopMock();
+  stopData();
+  ui.video.pause();
   stopSync();
   recording = { cancelled: false };
   setRecordingUi(true);
@@ -377,7 +395,7 @@ async function recordFullPass() {
     await ready;
     await audio.loadDataset(data);
     applyNormalizeSetting();
-    showMockFrame(0, 1 / data.fps);
+    showDataFrame(0, 1 / data.fps);
     if (!audio.isPlaying()) await audio.play();
     setPlayButton();
     await audio.startRecording();
@@ -387,7 +405,7 @@ async function recordFullPass() {
     const start = performance.now();
     for (let i = 0; i < data.frameCount; i++) {
       if (recording.cancelled) break;
-      if (i > 0) showMockFrame(i, 1 / data.fps);
+      if (i > 0) showDataFrame(i, 1 / data.fps);
       if (i % 10 === 0) ui.recordStatus.textContent = `Recording frame ${i + 1} of ${data.frameCount}...`;
       await sleep(start + (i + 1) * period - performance.now());
     }
@@ -405,19 +423,20 @@ async function recordFullPass() {
     }
     const mock = entries[data.dataset]?.mock;
     const mix = audio.getMix() === 'acoustic' ? '' : `-${audio.getMix()}`;   // default mix = plain <id>
-    const name = `${data.dataset}${mix}${mock ? '-mock' : ''}.${extensionFor(blob.type)}`;
+    const synth = audio.getSampleStatus().state === 'off' ? '-synth' : '';   // samples turned off
+    const name = `${data.dataset}${mix}${synth}${mock ? '-mock' : ''}.${extensionFor(blob.type)}`;
     if (ui.recordLink.href) URL.revokeObjectURL(ui.recordLink.href);
     Object.assign(ui.recordLink, { href: URL.createObjectURL(blob), download: name, textContent: `Download ${name} again` });
     ui.recordLink.hidden = false;
     ui.recordLink.click();
-    ui.recordStatus.textContent =
-      `Done: ${name}, ${(blob.size / 1024).toFixed(0)} KB${mock ? ' (mock data, practice only)' : ''}.`;
+    ui.recordStatus.textContent = `Done: ${name}, ${(blob.size / 1024).toFixed(0)} KB${mock ? ' (mock data)' : ''}.`;
   } catch (err) {
     if (audio.isRecording()) await audio.stopRecording();
     ui.recordStatus.textContent = `Recording failed: ${err.message}`;
   } finally {
     recording = null;
     setRecordingUi(false);
+    startSync();             // follow the video again
   }
 }
 
@@ -509,26 +528,35 @@ ui.mix.addEventListener('change', async () => {
   showSoundDescription();
   send();
 });
+ui.sampled.addEventListener('change', async () => {
+  await audio.setSampled(ui.sampled.value === 'on');
+  send();
+});
+audio.onSampleStatus(showSamples);
 ui.alarm.addEventListener('change', () => {
   audio.setAlarmEnabled(ui.alarm.checked);
   showSoundDescription();
   send();
 });
 ui.dataset.addEventListener('change', selectDataset);
-ui.mock.addEventListener('click', toggleMock);
+ui.dataPlay.addEventListener('click', toggleData);
 ui.speed.addEventListener('change', () => {
-  if (mockTimer) {           // apply the new speed straight away
-    clearTimeout(mockTimer);
+  if (dataTimer) {           // apply the new speed straight away
+    clearTimeout(dataTimer);
     scheduleNext();
   }
 });
-ui.frame.addEventListener('input', () => data && showMockFrame(Number(ui.frame.value)));
+ui.frame.addEventListener('input', () => data && showDataFrame(Number(ui.frame.value)));
 ui.normalize.addEventListener('change', () => {
   applyNormalizeSetting();
   send();
 });
 ui.videoFile.addEventListener('change', useLocalVideo);
-ui.sync.addEventListener('click', toggleSync);
+ui.video.addEventListener('play', () => {   // pressing play on the video takes over from "Play data"
+  if (!dataTimer) return;
+  stopData();
+  startSync();               // attaching to a playing video starts the audio too
+});
 ui.video.addEventListener('pause', () => setTimeout(setPlayButton, 0));   // sync pauses the audio too
 ui.record.addEventListener('click', recordFullPass);
 ui.recordCancel.addEventListener('click', () => {
@@ -543,6 +571,7 @@ ui.announce.addEventListener('change', () => {
 audio.setVolume(ui.volume.value / 100);
 ui.mix.value = audio.getMix();
 ui.alarm.checked = audio.isAlarmEnabled();
+ui.sampled.value = audio.isSampled() ? 'on' : 'off';
 buildSliders();
 syncSliders();
 buildPresetMenu();

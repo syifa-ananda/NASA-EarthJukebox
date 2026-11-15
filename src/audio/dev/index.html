@@ -36,6 +36,8 @@
     video { width: 100%; max-width: 640px; background: #000; border-radius: 4px; }
     table { border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
     th, td { border-bottom: 1px solid var(--line); padding: 2px 10px 2px 0; text-align: left; }
+    .badge { font-size: 0.8rem; padding: 1px 8px; border-radius: 999px; border: 1px solid #c77700; color: inherit;
+      background: color-mix(in srgb, #c77700 15%, transparent); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -62,8 +64,14 @@
         <option value="electronic">Electronic</option>
       </select>
       <label><input id="alarm" type="checkbox" checked> Climate alarm</label>
+      <label for="sampled">Strings and piano</label>
+      <select id="sampled">
+        <option value="on">Sampled (recorded)</option>
+        <option value="off">Synth</option>
+      </select>
       <span id="switches" class="row"></span>
     </div>
+    <p id="samples-status" aria-live="polite"></p>
     <p id="alarm-info" class="muted"></p>
     <p id="sound-description"></p>
     <div class="row">
@@ -74,12 +82,13 @@
     <p id="legend-out" aria-live="polite"></p>
   </section>
 
-  <section aria-labelledby="h-mock">
-    <h2 id="h-mock">Mock data</h2>
+  <section aria-labelledby="h-data">
+    <h2 id="h-data">Data</h2>
     <div class="row">
       <label for="dataset">Dataset</label>
       <select id="dataset"></select>
-      <button id="mock" type="button" aria-pressed="false">Play mock</button>
+      <span id="mock-badge" class="badge" hidden>mock data</span>
+      <button id="data-play" type="button" aria-pressed="false">Play data</button>
       <label for="speed">Speed</label>
       <select id="speed">
         <option value="0.5">0.5x</option>
@@ -91,7 +100,7 @@
       <input id="frame" type="range" min="0" max="0" value="0">
       <output id="frame-out" for="frame">0</output>
     </div>
-    <p id="mock-status" class="muted"></p>
+    <p id="data-status" class="muted"></p>
     <label><input id="normalize" type="checkbox" checked> Normalize to this file's ranges (5th&ndash;95th percentile)</label>
     <details>
       <summary>Ranges found in this file</summary>
@@ -103,22 +112,19 @@
   </section>
 
   <section aria-labelledby="h-video">
-    <h2 id="h-video">Video sync</h2>
+    <h2 id="h-video">Video</h2>
+    <p class="muted">The dataset's video loads automatically and the audio follows it: press play on the video
+      to play with sound; pause, seek and speed changes are followed too.</p>
     <p id="video-status" class="muted"></p>
-    <div class="row">
-      <label for="video-file">Use a local video file (stays on this computer)</label>
-      <input id="video-file" type="file" accept="video/*">
-    </div>
     <video id="video" controls playsinline muted aria-label="Dataset video"></video>
     <div class="row">
-      <button id="sync" type="button" aria-pressed="false">Sync audio to video</button>
+      <label for="video-file">Or try a local video file with this data (stays on this computer)</label>
+      <input id="video-file" type="file" accept="video/*">
     </div>
   </section>
 
   <section aria-labelledby="h-record">
     <h2 id="h-record">Record full pass</h2>
-    <p id="record-mock" class="warning" hidden><strong>Mock data:</strong> this dataset is not real yet.
-      Use this recording for practice only; record the final version once real data is in.</p>
     <p class="muted">Plays the selected dataset from the first to the last frame at 1x, records everything you hear,
       then downloads it. Nothing is saved in the repo.</p>
     <div class="row">
@@ -131,7 +137,7 @@
 
   <section aria-labelledby="h-features">
     <h2 id="h-features">Features (current frame)</h2>
-    <p class="muted">Moving a slider sends a frame to the engine straight away. Mock playback overwrites them on the next frame.</p>
+    <p class="muted">Moving a slider sends a frame to the engine straight away. Data playback and the video overwrite them on the next frame.</p>
     <div id="sliders" class="sliders"></div>
   </section>
 

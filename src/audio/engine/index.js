@@ -11,6 +11,7 @@ export {
   isReady, isPlaying, currentPreset,
   setMix, getMix, setSwitch, getSwitches,
   setAlarmEnabled, isAlarmEnabled, isAlarmActive,
+  setSampled, isSampled, getSampleStatus, onSampleStatus,
   getPreset, listPresets,
 } from './core.js';
 export { syncToVideo } from './sync.js';
