@@ -6,9 +6,12 @@
 
 export {
   init, loadPreset, loadDataset, analyzeRanges, setRanges, getRanges,
-  playFrame, play, pause, setVolume, probe, playLegend, describeFrame, dispose,
+  playFrame, play, pause, setVolume, probe, playLegend, previewAlarm, describeFrame, dispose,
   startRecording, stopRecording, isRecording, isRecordingSupported,
   isReady, isPlaying, currentPreset,
+  setMix, getMix, setSwitch, getSwitches,
+  setAlarmEnabled, isAlarmEnabled, isAlarmActive,
+  getPreset, listPresets,
 } from './core.js';
 export { syncToVideo } from './sync.js';
-export { getPreset, listPresets, hasPreset } from '../presets/index.js';
+export { hasPreset, MIXES } from '../presets/index.js';
