@@ -3,6 +3,7 @@
 //   tick(time, params)        arp: called on every beat subdivision
 //   update(params, ramp)      called for every new frame
 //   hit(times, params)        hits: one percussion hit per time
+//   (marker layers play one note when a field rises past a threshold)
 //   start(time) / stop()      play / pause (held notes)
 //   dispose()                 free every Tone node the layer created
 
@@ -148,6 +149,31 @@ export function createLayer(spec, graph, preset, getParams) {
             synth.triggerAttackRelease(midiToHz(midi), '8n', t, vel);
           }
         }
+      },
+    };
+  }
+
+  if (spec.role === 'marker') {
+    // One gentle note each time `spec.field` (normalized) rises past
+    // `spec.threshold`, e.g. a chime at every new year in nightlights.
+    let prev = 1;          // start "above" so a preset switch never fires a marker
+    let playing = false;
+    let lastHit = 0;
+    return {
+      ...base,
+      start() { playing = true; },
+      stop() {
+        playing = false;
+        synth.releaseAll?.();
+      },
+      update(p) {
+        const v = p.levels?.[spec.field] ?? 0;
+        if (playing && prev < spec.threshold && v >= spec.threshold) {
+          const t = Math.max(Tone.now() + 0.02, lastHit + 0.05);
+          lastHit = t;
+          synth.triggerAttackRelease(midiToHz(p.chord[0] + shift), spec.noteLength ?? '2n', t, 0.7);
+        }
+        prev = v;
       },
     };
   }

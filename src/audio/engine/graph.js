@@ -50,6 +50,13 @@ export async function createGraph() {
     envelope: { attack: 0.005, decay: 0.15, sustain: 0.3, release: 0.3 },
     volume: -8,
   }).connect(probePanner);
+  // Soft tick for probe cells with no data (grid value 0): confirms the cursor
+  // moved without sounding like a "very low" value.
+  const emptySynth = new Tone.NoiseSynth({
+    noise: { type: 'pink' },
+    envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.02 },
+    volume: -24,
+  }).connect(probePanner);
   // Separate synth for the legend, so legend notes never collide with probe notes.
   const legendSynth = new Tone.Synth({
     oscillator: { type: 'triangle' },
@@ -59,11 +66,11 @@ export async function createGraph() {
 
   await reverb.ready;   // the reverb impulse is rendered asynchronously
 
-  const nodes = [legendSynth, probeSynth, probePanner, dryIn, layerIn, filter, tremolo, panner, reverb, duck,
+  const nodes = [legendSynth, emptySynth, probeSynth, probePanner, dryIn, layerIn, filter, tremolo, panner, reverb, duck,
     master, fader, headroom, limiter, output];
   return {
     layerIn, dryIn, filter, tremolo, panner, reverb, duck, master, fader, limiter, output,
-    probePanner, probeSynth, legendSynth,
+    probePanner, probeSynth, emptySynth, legendSynth,
     dispose() {
       nodes.forEach((n) => n.dispose());
     },

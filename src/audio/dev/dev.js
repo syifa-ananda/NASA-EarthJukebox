@@ -107,15 +107,31 @@ function send(frameSeconds) {
 
 /** Refresh everything that shows the current frame. */
 function showFrame(params) {
-  ui.params.textContent = JSON.stringify(params, (k, v) => (typeof v === 'number' ? +v.toFixed(3) : v), 2);
+  ui.params.textContent = JSON.stringify(params, (_, v) => (typeof v === 'number' ? +v.toFixed(3) : v), 2);
   draw();
-  const text = audio.describeFrame(frame);
-  ui.describe.dataset.latest = text;
-  const now = performance.now();
-  if (ui.announce.checked && now - lastAnnounce > ANNOUNCE_EVERY_MS) {
-    ui.describe.textContent = text;
-    lastAnnounce = now;
+  ui.describe.dataset.latest = audio.describeFrame(frame);
+  announceLatest();
+}
+
+/**
+ * Throttled live region: at most one announcement every ANNOUNCE_EVERY_MS,
+ * and the latest sentence is always delivered once the window opens (so a
+ * seek or the last frame is never left unannounced).
+ */
+let announceTimer = null;
+function announceLatest() {
+  if (!ui.announce.checked || announceTimer) return;
+  const wait = lastAnnounce + ANNOUNCE_EVERY_MS - performance.now();
+  if (wait > 0) {
+    announceTimer = setTimeout(() => {
+      announceTimer = null;
+      announceLatest();
+    }, wait);
+    return;
   }
+  const text = ui.describe.dataset.latest ?? '';
+  if (text !== ui.describe.textContent) ui.describe.textContent = text;
+  lastAnnounce = performance.now();
 }
 
 function showSoundDescription() {
@@ -404,8 +420,10 @@ async function probeCursor() {
   if (!audio.isReady()) await audio.init();   // key press / click is a user gesture
   const r = audio.probe(cursor.x, cursor.y);
   const side = r.pan < -0.2 ? 'left' : r.pan > 0.2 ? 'right' : 'centre';
-  ui.probeOut.textContent =
-    `Column ${r.x + 1} of ${COLS}, row ${r.y + 1} of ${ROWS}: value ${r.value.toFixed(2)}, note ${r.note}, ${side}.`;
+  const where = `Column ${r.x + 1} of ${COLS}, row ${r.y + 1} of ${ROWS}`;
+  ui.probeOut.textContent = r.empty
+    ? `${where}: empty (${r.label}), ${side}.`
+    : `${where}: ${r.level}, value ${r.value.toFixed(2)}, note ${r.note}, ${side}.`;
   draw();
 }
 

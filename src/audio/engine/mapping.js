@@ -11,14 +11,22 @@ const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : 
 
 const MODE_HYSTERESIS = 0.05;   // stops the key flipping back and forth on noisy frames
 
+const CONTRACT_KEYS = new Set(['t', 'brightness', 'warmth', 'density', 'pan', 'motion', 'flashes', 'value', 'grid']);
+
 /**
  * Fill missing fields with neutral values and clamp everything to the
- * contract's ranges, so a half-filled object never breaks the audio.
+ * contract's ranges, so a half-filled object never breaks the audio. Extra
+ * numeric fields (a preset's derived fields) are kept as they are.
  * @param {Partial<import('../types.js').Frame>} f
  * @returns {import('../types.js').Frame}
  */
 export function sanitizeFrame(f = {}) {
+  const extra = {};
+  for (const [k, v] of Object.entries(f ?? {})) {
+    if (!CONTRACT_KEYS.has(k) && typeof v === 'number' && Number.isFinite(v)) extra[k] = v;
+  }
   return {
+    ...extra,
     t: num(f.t, 0),
     brightness: clamp(num(f.brightness, 0.5), 0, 1),
     warmth: clamp(num(f.warmth, 0.5), 0, 1),
@@ -29,6 +37,21 @@ export function sanitizeFrame(f = {}) {
     value: clamp(num(f.value, 0.5), 0, 1),
     grid: Array.isArray(f.grid) ? f.grid : null,
   };
+}
+
+/**
+ * Frame plus the preset's derived fields (e.g. sst's `seasons`, computed from
+ * the grid). Presets without `derive` get the frame back unchanged.
+ */
+export function withDerived(frame, preset) {
+  return preset?.derive ? { ...frame, ...preset.derive(frame) } : frame;
+}
+
+/** Numeric fields of a (normalized) frame, for layers that react to one field (markers). */
+function levelsOf(f) {
+  const out = {};
+  for (const [k, v] of Object.entries(f)) if (typeof v === 'number') out[k] = v;
+  return out;
 }
 
 /**
@@ -92,5 +115,6 @@ export function mapFrame(frame, preset, prevMode) {
     tension,
     hits: Math.min(m.maxHits, Math.round(f.flashes * (w.flashes ?? 1))),
     velocity: 0.45 + 0.45 * loud,
+    levels: levelsOf(f),
   };
 }
