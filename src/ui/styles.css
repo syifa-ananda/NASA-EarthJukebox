@@ -698,12 +698,6 @@ kbd {
   gap: 16px;
 }
 
-.records-more {
-  margin: 16px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
 .record {
   position: relative;
 }

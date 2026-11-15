@@ -87,14 +87,12 @@ export function renderRecordList(container, records, { onSelect }) {
     h('legend', { class: 'visually-hidden' }, 'Datasets'),
     h('div', { class: 'record-items' }, records.map(recordItem)),
   );
-  // Plain text, not a link or control: says the list can grow.
-  const more = h('p', { class: 'records-more rail-hide' }, 'More NASA datasets can be added, such as aerosols, air quality and forest height.');
 
   fieldset.addEventListener('change', (event) => {
     if (event.target.name === 'record') onSelect(event.target.value);
   });
 
-  container.replaceChildren(fieldset, more);
+  container.replaceChildren(fieldset);
 
   return {
     check(id) {
