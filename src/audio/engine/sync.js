@@ -21,7 +21,7 @@ import { loadDataset, playFrame, play, pause } from './core.js';
  */
 export function syncToVideo(video, file, { onFrame, loadDataset: load = true } = {}) {
   const fps = file.fps;
-  const last = file.frameCount - 1;
+  const last = file.frames.length - 1;   // frame counts differ per dataset
   let lastIndex = -1;
   let callbackId = null;
   let usingVideoFrames = false;

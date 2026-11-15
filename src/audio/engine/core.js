@@ -4,9 +4,9 @@
 import { Tone, unlockAudio, loadTone } from '../tone.js';
 import { createGraph } from './graph.js';
 import { createLayer } from './layers.js';
-import { mapFrame, sanitizeFrame } from './mapping.js';
-import { analyzeRanges, normalizeFrame, normalizeValue } from './normalize.js';
-import { describeFrame as describeText, legendText } from './describe.js';
+import { mapFrame, sanitizeFrame, withDerived } from './mapping.js';
+import { analyzeRanges as analyzeFile, normalizeFrame, normalizeValue } from './normalize.js';
+import { describeFrame as describeText, legendText, levelWord } from './describe.js';
 import { getPreset } from '../presets/index.js';
 import { getScale, quantizeStep, stepToMidi, midiToHz, midiToName } from '../scales.js';
 
@@ -48,6 +48,7 @@ export const getRanges = () => state.ranges;
 /**
  * Start audio. MUST be called from a user gesture (click / key press):
  * browsers only allow sound after one. Safe to call more than once.
+ * @returns {Promise<void>}
  */
 export function init() {
   if (state.initPromise) return state.initPromise;
@@ -90,6 +91,17 @@ export async function loadPreset(datasetId) {
   buildPreset(state.preset);
   state.graph.fader.gain.rampTo(1, 0.3);
   return preset;
+}
+
+/**
+ * Ranges of a features.json for normalization: the contract fields, the
+ * dataset preset's derived fields (e.g. sst `seasons`) and the grid.
+ * @param {import('../types.js').FeaturesFile} file
+ * @returns {import('../types.js').Ranges}
+ */
+export function analyzeRanges(file) {
+  const preset = getPreset(file?.dataset);
+  return analyzeFile(file, { derive: preset.derive, minSpan: preset.normalize?.minSpan });
 }
 
 /**
@@ -159,9 +171,14 @@ export function setVolume(v) {
 
 /**
  * Explore mode: play one short tone for the grid cell at (x, y) of the latest
- * frame. x = column 0-31 (west -> east), y = row 0-15 (north -> south),
- * same as frame.grid[y][x]. x sets the pan, the cell's value sets the pitch
- * (normalized to the file's grid range). `value` in the result is raw.
+ * frame. x = column 0-31 (left/west -> right/east), y = row 0-15 (top/north ->
+ * bottom/south), same as frame.grid[y][x]. x sets the pan, the cell's value
+ * sets the pitch (normalized to the file's non-zero grid range). `value` in
+ * the result is raw.
+ *
+ * A cell of exactly 0 means "nothing there" (land, unlit, no lightning, off
+ * the globe): it plays a soft tick instead of a note and returns
+ * `empty: true` with the preset's `emptyLabel`.
  * Returns the cell info even if audio isn't started (then `sounded` is false).
  * @returns {import('../types.js').ProbeResult}
  */
@@ -175,7 +192,9 @@ export function probe(x, y) {
   const value = clamp(typeof raw === 'number' ? raw : 0.5, 0, 1);
 
   const pan = ((cx + 0.5) / cols) * 2 - 1;
-  const midi = probeMidi(normalizeValue(value, state.ranges?.grid));
+  const empty = grid ? raw === 0 : false;
+  const norm = normalizeValue(value, state.ranges?.grid);
+  const midi = empty ? null : probeMidi(norm);
 
   let sounded = false;
   if (state.ready) {
@@ -183,10 +202,17 @@ export function probe(x, y) {
     const t = Math.max(Tone.now() + 0.005, state.lastProbe + 0.01);   // strictly increasing
     state.lastProbe = t;
     g.probePanner.pan.setValueAtTime(pan, t);
-    g.probeSynth.triggerAttackRelease(midiToHz(midi), 0.25, t, 0.8);
+    if (empty) g.emptySynth.triggerAttackRelease(0.03, t, 0.6);
+    else g.probeSynth.triggerAttackRelease(midiToHz(midi), 0.25, t, 0.55 + 0.3 * norm);   // near-zero cells stay soft
     sounded = true;
   }
-  return { x: cx, y: cy, value, pan, midi, note: midiToName(midi), sounded };
+  return {
+    x: cx, y: cy, value, pan, empty,
+    label: empty ? state.preset.emptyLabel ?? 'nothing here' : null,
+    level: empty ? null : levelWord(norm),
+    midi, note: midi === null ? null : midiToName(midi),
+    sounded,
+  };
 }
 
 /**
@@ -293,7 +319,8 @@ function probeMidi(v) {
 
 /** Map the latest frame (normalized) with the current preset and apply it. */
 function remap(ramp) {
-  const p = mapFrame(normalizeFrame(state.frame ?? sanitizeFrame({}), state.ranges), state.preset, state.mode);
+  const full = withDerived(state.frame ?? sanitizeFrame({}), state.preset);
+  const p = mapFrame(normalizeFrame(full, state.ranges), state.preset, state.mode);
   state.mode = p.mode;
   state.params = p;
   if (state.ready && state.layers.length) applyParams(p, ramp);
@@ -345,7 +372,7 @@ function applyParams(p, ramp) {
   g.layerIn.volume.rampTo(p.volumeDb + trim, ramp);
   g.dryIn.volume.rampTo(trim, ramp);
   g.filter.frequency.rampTo(p.filterHz, ramp);
-  g.panner.pan.rampTo(p.pan, ramp);
+  g.panner.pan.rampTo(p.pan, state.preset.mapping.panRamp ?? ramp);
   g.tremolo.wet.rampTo(p.tremoloDepth, ramp);
   g.tremolo.frequency.rampTo((p.bpm / 60) * 2, ramp);   // tremolo pulses in 8th notes
   Tone.getTransport().bpm.rampTo(p.bpm, ramp);

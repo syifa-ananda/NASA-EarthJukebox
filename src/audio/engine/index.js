@@ -5,11 +5,10 @@
 //   const detach = audio.syncToVideo(videoEl, featuresFile);   // one call wires everything
 
 export {
-  init, loadPreset, loadDataset, setRanges, getRanges,
+  init, loadPreset, loadDataset, analyzeRanges, setRanges, getRanges,
   playFrame, play, pause, setVolume, probe, playLegend, describeFrame, dispose,
   startRecording, stopRecording, isRecording, isRecordingSupported,
   isReady, isPlaying, currentPreset,
 } from './core.js';
 export { syncToVideo } from './sync.js';
-export { analyzeRanges } from './normalize.js';
 export { getPreset, listPresets, hasPreset } from '../presets/index.js';
