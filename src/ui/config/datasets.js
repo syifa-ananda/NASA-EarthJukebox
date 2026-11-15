@@ -16,11 +16,9 @@
 //   soundHint    one line on how it sounds (read with the card, visually hidden)
 //   accent       decorative tint for the record card's background gradient.
 //                It is never used for text and never carries meaning alone.
-//   photo        decorative card thumbnail (CSS background, cover, never read
-//                out), relative to index.html. null = a CSS placeholder for this
-//                id (styles.css → .thumb). To add photos: put them in
-//                src/ui/img/cards/, set photo: 'src/ui/img/cards/<id>.jpg' and
-//                credit them in src/ui/img/cards/CREDITS.md.
+//   icon         decorative card thumbnail: the name of an icon drawn in
+//                src/ui/icons.js (aria-hidden, never read out). The tile colours
+//                are in styles.css → .thumb[data-thumb="<id>"]. Default: 'globe'.
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                fallback and the legend bar; null if the colour key is unknown
 //   summary      { subject, high, preposition? } wording for "where is it highest"
@@ -61,7 +59,7 @@
 export const RECORDS = [
   {
     id: 'sst',
-    photo: null,
+    icon: 'thermometerWaves',
     shortTitle: 'Sea Surface Temperature',
     title: 'Global Sea Surface Currents and Temperature',
     shortDescription: 'Ocean surface warmth through the seasons.',
@@ -107,7 +105,7 @@ export const RECORDS = [
   },
   {
     id: 'nightlights',
-    photo: null,
+    icon: 'cityNight',
     shortTitle: 'Night Lights',
     title: 'Change in Night Lights 2012–2023',
     shortDescription: 'City lights across the globe.',
@@ -136,7 +134,7 @@ export const RECORDS = [
   },
   {
     id: 'lightning',
-    photo: null,
+    icon: 'cloudBolt',
     shortTitle: 'Lightning from the ISS',
     title: 'Lightning Events Detected from the ISS 2017–2023',
     shortDescription: 'Every lightning burst from space.',
@@ -170,7 +168,7 @@ export const RECORDS = [
   },
   {
     id: 'co2',
-    photo: null,
+    icon: 'co2Cloud',
     shortTitle: 'Carbon Dioxide',
     title: 'DYAMOND Global Carbon Dioxide',
     shortDescription: 'Atmospheric CO₂ around the world.',
@@ -230,7 +228,7 @@ export function mergeRecords(indexEntries = []) {
       shortDescription: cfg.shortDescription ?? '',
       soundHint: cfg.soundHint,
       accent: cfg.accent ?? DEFAULT_ACCENT,
-      photo: cfg.photo ?? null,
+      icon: cfg.icon ?? 'globe',
       legend: cfg.legend ?? null,
       summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
       gridKind: cfg.gridKind ?? 'world-map',
@@ -263,7 +261,7 @@ export function mergeRecords(indexEntries = []) {
       shortDescription: '',
       soundHint: 'NASA data, played as music',
       accent: DEFAULT_ACCENT,
-      photo: null,
+      icon: 'globe',
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
       // Unknown new datasets: describe positions in the picture, never guess places.

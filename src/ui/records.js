@@ -1,4 +1,4 @@
-// Record picker: a native radio group styled as cards with a thumbnail.
+// Record picker: a native radio group styled as cards with an icon thumbnail.
 // Native radios give us the expected keyboard model for free: Tab enters and
 // leaves the group as one stop, and arrow keys move (and select) within it.
 //
@@ -12,17 +12,11 @@ import { icon } from './icons.js';
 import { statusLabel } from './config/datasets.js';
 
 /**
- * Decorative thumbnail. With config → photo it shows that file (cover);
- * without it, a CSS placeholder for this dataset (styles.css → .thumb).
- * Absolute URL, so it doesn't depend on which file sets the style.
+ * Decorative thumbnail: the dataset's icon (config → icon) on a tinted tile
+ * (styles.css → .thumb[data-thumb]). The title says the same in words.
  */
 function thumb(record) {
-  const style = record.photo ? { backgroundImage: `url("${new URL(record.photo, document.baseURI).href}")` } : null;
-  return h(
-    'span',
-    { class: `thumb${record.photo ? ' has-photo' : ''}`, 'data-thumb': record.id, 'aria-hidden': 'true', style },
-    record.photo ? null : icon('image', 'thumb-mark'),
-  );
+  return h('span', { class: 'thumb', 'data-thumb': record.id, 'aria-hidden': 'true' }, icon(record.icon ?? 'globe', 'thumb-icon'));
 }
 
 function recordItem(record) {

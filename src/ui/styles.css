@@ -61,12 +61,6 @@
   --thumb: clamp(64px, 5.2vw, 88px);
   --right-w: clamp(300px, 25vw, 420px);
   --picture-max-h: 72vh; /* the picture is never taller than this */
-
-  /* Header backdrop. none = the CSS planet placeholder below. To use a real
-     photo later, set it to url("src/ui/img/header.jpg") (any path, relative to
-     this file's page); the planet gradients stay underneath it, and the dark
-     scrim on the left keeps the title readable. */
-  --header-image: none;
 }
 
 /* ---------- Base ---------- */
@@ -119,11 +113,11 @@ p {
   outline-offset: 3px;
 }
 
-/* Sections that receive focus from the skip links: always show where focus
-   landed, whatever input was used. */
-#records:focus,
-#player:focus,
-.help:focus {
+/* Sections that receive focus from the skip links (tabindex="-1"): show where
+   keyboard focus landed. Never after a mouse click or on page load. */
+#records:focus-visible,
+#player:focus-visible,
+.help:focus-visible {
   outline: 2px dashed var(--cyan);
   outline-offset: 3px;
 }
@@ -178,40 +172,8 @@ p {
 /* ---------- Header ---------- */
 
 .site-header {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   background: var(--deep-navy);
   border-bottom: 1px solid var(--border);
-}
-
-/* Decorative planet limb behind the header (placeholder for a photo, see
-   --header-image). A big deep-blue circle whose lower edge crosses the
-   header right of the title, with a thin atmosphere rim, a few city lights
-   and faint stars. The rim is at most #20709a, so header text stays >= 4.5:1
-   even where it crosses the nav. Never read out, never clickable. */
-.site-header::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    var(--header-image),
-    linear-gradient(90deg, rgba(8, 23, 42, 0.9) 0, rgba(8, 23, 42, 0.55) 300px, transparent 460px),
-    radial-gradient(circle 1.6px at 640px 70px, rgba(242, 173, 85, 0.9), transparent),
-    radial-gradient(circle 1.3px at 700px 82px, rgba(242, 173, 85, 0.8), transparent),
-    radial-gradient(circle 1.2px at 760px 64px, rgba(242, 173, 85, 0.7), transparent),
-    radial-gradient(circle 1.4px at 820px 78px, rgba(242, 173, 85, 0.75), transparent),
-    radial-gradient(circle 1px at 1180px 22px, rgba(242, 246, 252, 0.6), transparent),
-    radial-gradient(circle 1px at 1320px 74px, rgba(242, 246, 252, 0.45), transparent),
-    radial-gradient(circle 1px at 300px 84px, rgba(242, 246, 252, 0.4), transparent),
-    radial-gradient(circle 1px at 1460px 40px, rgba(242, 246, 252, 0.5), transparent),
-    radial-gradient(circle 640px at 760px -462px, transparent 93.4%, rgba(56, 220, 232, 0.14) 94.6%, transparent 100%),
-    radial-gradient(circle 600px at 760px -462px, #0a2448 0, #0e3263 84%, #164d84 96%, #20709a 99.3%, transparent 100%);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
 }
 
 .header-inner {
@@ -874,56 +836,43 @@ kbd {
   color: var(--amber);
 }
 
-/* Thumbnails. Decorative (aria-hidden). Until photos exist (config → thumb)
-   each dataset gets a placeholder fill that only hints at its colours, plus
-   a faint "image" mark so it reads as a placeholder. */
+/* Thumbnails. Decorative (aria-hidden): the dataset's icon (icons.js) on a
+   tinted tile. The tint is only a hint, never the only cue (the title says
+   it). Each icon colour is >= 5:1 on both ends of its tile gradient. */
 .thumb {
-  position: relative;
   display: grid;
   place-items: center;
   width: var(--thumb);
   aspect-ratio: 1;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-control);
+  color: var(--text-secondary); /* the icon (any other dataset: a globe) */
   background: linear-gradient(160deg, var(--slate), var(--raised));
-  background-size: cover;
-  background-position: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
 }
 
-.thumb-mark {
-  width: 30px;
-  height: 30px;
-  color: #ffffff;
-  opacity: 0.35;
+.thumb-icon {
+  width: 45%;
+  height: 45%;
 }
 
-.thumb[data-thumb="sst"]:not(.has-photo) {
-  background-image: linear-gradient(160deg, #1b3a9e 0%, #1f7fd1 22%, #27b0b0 40%, #3fb34f 56%, #d8d33a 70%, #f08c1e 84%, #d7191c 100%);
+.thumb[data-thumb="sst"] {
+  color: #7fe3ff;
+  background: linear-gradient(160deg, #0f3a66, #12597a);
 }
 
-.thumb[data-thumb="nightlights"]:not(.has-photo) {
-  background-image:
-    radial-gradient(circle 2px at 28% 38%, #f2ad55, transparent),
-    radial-gradient(circle 1.5px at 40% 46%, #f6c77e, transparent),
-    radial-gradient(circle 2.5px at 62% 34%, #f2ad55, transparent),
-    radial-gradient(circle 1.5px at 70% 58%, #f6c77e, transparent),
-    radial-gradient(circle 2px at 35% 70%, #f2ad55, transparent),
-    radial-gradient(circle 1.5px at 78% 76%, #f2ad55, transparent),
-    radial-gradient(circle 1.2px at 52% 62%, #f6c77e, transparent),
-    linear-gradient(170deg, #0a1630, #102544);
+.thumb[data-thumb="nightlights"] {
+  color: #f2c46b;
+  background: linear-gradient(160deg, #0b1630, #1b2a4a);
 }
 
-.thumb[data-thumb="lightning"]:not(.has-photo) {
-  background-image:
-    linear-gradient(112deg, transparent 47%, rgba(232, 224, 255, 0.85) 49.5%, transparent 52%),
-    linear-gradient(150deg, #18123f 0%, #33246e 55%, #6a4fc0 100%);
+.thumb[data-thumb="lightning"] {
+  color: #e6dcff;
+  background: linear-gradient(160deg, #241a52, #3a2a7a);
 }
 
-.thumb[data-thumb="co2"]:not(.has-photo) {
-  background-image:
-    radial-gradient(circle at 55% 50%, rgba(255, 255, 255, 0.18), transparent 45%),
-    conic-gradient(from 200deg at 55% 50%, #21b7ae, #d8d33a, #f08c1e, #c8501e, #3fa3d8, #21b7ae);
+.thumb[data-thumb="co2"] {
+  color: #ffb36b;
+  background: linear-gradient(160deg, #3a2a14, #5a3a1a);
 }
 
 /* ---------- Collapsed dataset list: the icon rail ----------
@@ -981,11 +930,6 @@ kbd {
   .layout[data-left="rail"] .thumb {
     width: 48px;
     border-radius: var(--radius-control);
-  }
-
-  .layout[data-left="rail"] .thumb-mark {
-    width: 18px;
-    height: 18px;
   }
 
   .layout[data-left="rail"] .record-input:hover + .record-card .thumb {
@@ -1844,28 +1788,32 @@ kbd {
 }
 
 /* ---------- How to listen page (how-to-listen.html) ----------
-   One card per topic: 1 column on phones, 2 on tablets, 3 on wide screens.
-   DOM order = reading order; the grid fills row by row. */
+   Four short cards: 2 × 2, one column on phones. DOM order = reading order;
+   the grid fills row by row. */
 
 .help {
+  max-width: 1000px;
   padding-top: 32px;
   padding-bottom: 32px;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .help-intro {
-  max-width: 46rem;
-  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
+  margin-bottom: 20px;
 }
 
 .help-intro h1 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: clamp(26px, 1.4rem + 1vw, 34px);
 }
 
 .help-intro p {
-  margin: 0 0 10px;
-  font-size: 17px;
+  margin: 0;
 }
 
 .back-link {
@@ -1888,38 +1836,23 @@ kbd {
   }
 }
 
-@media (min-width: 1100px) {
-  .help-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 .help-card h2 {
   margin: 0 0 10px;
   font-size: 20px;
   font-weight: 600;
 }
 
-.help-card p,
-.help-card ul,
-.help-card ol {
-  margin: 0 0 10px;
-}
-
-.help-card > :last-child {
-  margin-bottom: 0;
-}
-
-.help-card ul,
-.help-card ol {
+.help-card ul {
+  margin: 0;
   padding-left: 20px;
 }
 
-.help-card li {
-  margin-bottom: 6px;
+.help-card li + li {
+  margin-top: 6px;
 }
 
 .help-note {
+  margin: 10px 0 0;
   font-size: 14px;
   color: var(--text-secondary);
 }
@@ -2120,9 +2053,9 @@ kbd {
 
 @media (forced-colors: active) {
   :focus-visible,
-  #records:focus,
-  #player:focus,
-  .help:focus,
+  #records:focus-visible,
+  #player:focus-visible,
+  .help:focus-visible,
   .record-input:focus-visible + .record-card {
     outline-color: Highlight;
   }
@@ -2140,12 +2073,8 @@ kbd {
     border-color: CanvasText;
   }
 
-  .site-header::before,
-  .thumb-mark {
-    display: none;
-  }
-
   .thumb {
+    color: CanvasText;
     background: Canvas;
   }
 
