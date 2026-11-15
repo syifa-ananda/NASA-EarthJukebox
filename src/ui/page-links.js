@@ -3,7 +3,7 @@
 // The settings live in the URL hash (#record=…[&keys=off][&alarm=off][&left=…][&info=…]).
 //   - Skip links and other in-page links move focus to their target without
 //     overwriting that hash, so a reload still restores the settings.
-//   - Links marked data-keep-state (the header nav, "Back to the jukebox")
+//   - Links marked data-keep-state (the header nav, "Back to EarthTunes")
 //     carry the same hash to the other page, so going to "How to listen" and
 //     back keeps the dataset, layout and switches. The browser's Back
 //     button keeps them anyway (it returns to the jukebox's own URL).
