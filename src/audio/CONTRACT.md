@@ -14,6 +14,10 @@ Tone.js **15.1.22** is vendored at `src/audio/vendor/Tone.js` (MIT, licence file
 
 **Don't add a `<script>` tag for `vendor/Tone.js`.** Loading Tone creates an AudioContext immediately, and browsers log "AudioContext was not allowed to start" if that happens before a click. The engine loads Tone itself on the first `init()`, which runs inside a click or key press. Until then the page has no AudioContext at all. Everything except sound works before `init()`: `loadPreset`, `loadDataset`, `playFrame`, `probe` (returns the value, `sounded: false`), `describeFrame` and `listPresets`.
 
+Recorded strings and piano (section 6) are served the same way from `src/audio/vendor/samples/` (about 750 KB of MP3s), so they also work offline.
+
+**Video seeking needs a server with byte-range support.** `python3 -m http.server` (our `npm run dev`) ignores range requests, so in Chrome a seek in an MP4 jumps back to the start; play and pause work. GitHub Pages and most static hosts support ranges.
+
 `package.json` lists `tone` as a devDependency only to record the version. Section 9 explains how to upgrade.
 
 ## 2. Quick start: one call per dataset
@@ -77,7 +81,7 @@ All functions are named exports of `src/audio/engine/index.js`.
 
 | Function | What it does |
 |---|---|
-| `init()` → `Promise` | Starts audio and builds the sound graph. **Call from a user gesture** (click / key press). Safe to call more than once. |
+| `init()` → `Promise` | Starts audio and builds the sound graph. **Call from a user gesture** (click / key press). Safe to call more than once. Recorded instruments load first (usually well under a second; at most 8 s, then the synth versions are used). |
 | `syncToVideo(video, file, options?)` → `detach` | See section 3. |
 | `loadDataset(file)` → `Promise<{preset, ranges}>` | Preset + normalization for a features.json. |
 | `loadPreset(datasetId)` → `Promise<Preset>` | Preset only. Unknown ids get the `default` preset, so new datasets still make sound. Disposes the old instruments. Works before `init()`. |
@@ -94,6 +98,8 @@ All functions are named exports of `src/audio/engine/index.js`.
 | `listPresets()`, `getPreset(id)`, `hasPreset(id)` | Preset info for menus; every preset has a `soundDescription` for screen readers, written for the current instrument mix. |
 | `setMix('acoustic' \| 'electronic')` → `Promise`, `getMix()`, `MIXES` | Instrument mix for every preset (section 6). Default `'acoustic'`. Rebuilds the current instruments with a short fade; works before `init()`. |
 | `setAlarmEnabled(on)`, `isAlarmEnabled()`, `isAlarmActive()` | Climate alarm on/off for every preset (a user setting, default on), and whether it is sounding right now (section 6). |
+| `setSampled(on)` → `Promise`, `isSampled()` | Recorded strings and piano (default) or their synth versions, e.g. to compare. Turning it on again retries samples that failed. |
+| `getSampleStatus()`, `onSampleStatus(fn)` → `unsubscribe` | Sample loading state for the current dataset and mix: `state` is `'none'` (no recorded instruments), `'idle'` (they load when audio starts), `'loading'`, `'ready'`, `'fallback'` (a file failed or took over 8 s: synth versions) or `'off'`. `onSampleStatus` calls `fn` with it on every change. |
 | `setSwitch(name, on)` → `Promise`, `getSwitches()` | Optional layers of the current preset, e.g. `setSwitch('angklung', false)`; `null` goes back to the preset's own setting. `getSwitches()` → e.g. `{ angklung: true }`, or `{}` if the preset and mix have none. |
 | `isReady()`, `isPlaying()`, `currentPreset()` | State queries. |
 
@@ -101,6 +107,7 @@ Accessibility notes for the UI:
 
 - **`soundDescription`**: read it when a dataset is chosen (`currentPreset().soundDescription`).
 - **Legend**: offer a "Play legend" button. Show or announce the returned `text` while it plays. For presets with the alarm, it explains the wailing sound.
+- **Loading samples**: show `getSampleStatus()` in a polite live region via `onSampleStatus` ("Loading samples…", then ready or "using the synth versions"); the dev page does this.
 - **Alarm preview**: next to the legend, offer "Preview alarm" (`previewAlarm()`) on datasets with an alarm, and announce the returned `text`.
 - **Climate alarm switch**: offer a "Climate alarm on/off" setting (`setAlarmEnabled`). The alarm already fades in slowly and stays under the music, but some listeners will still prefer it off; the descriptions then stop mentioning it.
 - **Throttle `describeFrame`** to about one announcement every 2–3 seconds, but always deliver the latest sentence when the window opens, so a seek or the last frame isn't left unannounced. `announceLatest()` in `src/audio/dev/dev.js` does this.
@@ -115,15 +122,17 @@ Everything is synthesized in the browser; nothing is downloaded.
 - `acoustic` (default): acoustic and world-inspired instruments: harp, soft piano, strings, angklung, a marimba-style bass, a wordless vocal pad, hand drums, frame drum, log drum and an overtone drone. The drums are modelled on real ones: a drumhead ringing at a few inharmonic modes with its own decay, a small pitch drop at each hit, a short noise burst for the hand on the skin, and slight random variation from hit to hit. They are inspired by instruments from many places, not copies of any tradition; the vocal pad sings vowels only ("oo", "oh", "aa"), never words.
 - `electronic`: the original synth sounds (plucks, FM bells, pads, a saw drone, thunder and noise crackle), with a gentler top end than before (`mixMapping.electronic` in each preset: less loud, less bright and less dense at the highest values) so it stays comfortable at the data's peaks.
 
+**Recorded strings and piano.** In the acoustic mix, `strings` (sst, default) and `piano` (default) play recorded notes from VSCO 2 Community Edition (CC0, see `vendor/samples/CREDITS.md`): a soft solo violin with vibrato from G3 up, a cello section for the two lowest notes, and the softest layer of an upright piano, 6 to 8 notes each, repitched in between. They load before playback with an 8-second limit; if any file fails or is late, the synth versions play instead, with no errors. `setSampled(false)` switches to the synth versions on purpose. The data mapping is the same either way.
+
 **Why each preset sounds the way it does (acoustic mix):**
 
 | Preset | Instruments | Why |
 |---|---|---|
-| `sst` | strings, "oo"–"oh" vocal pad, a few harp notes | long bowed notes match slow, continuous ocean change; a wordless voice feels like breath and depth and swells with the currents |
+| `sst` | recorded violin and cello, "oo"–"oh" vocal pad, a few harp notes | long bowed notes match slow, continuous ocean change; a wordless voice feels like breath and depth and swells with the currents |
 | `nightlights` | a bamboo ensemble: angklung lead, a few soft harp notes above, a marimba bass on the key's root and fifth, and a low angklung chord for each new year | each shaken note is one point of light, so more notes play as cities grow; every layer is harmonic and in the same key, so nothing clashes with the angklung |
 | `lightning` | hand drums for each storm burst, a deep frame drum on busy frames, a log drum on the biggest bursts, an "aa"–"oh" vocal pad | storm bursts are sudden, rhythmic events, so they become percussion; the deep drum gives the thunder its weight |
 | `co2` | overtone drone with a whistling overtone, a frame-drum heartbeat | an invisible gas becomes a breathing hum; the overtone climbs and the heartbeat quickens as CO₂ rises, so "more" is heard without just getting louder |
-| `default` | piano, strings, hand drums for flashes | neutral and clear for any new dataset |
+| `default` | recorded upright piano and violin, hand drums for flashes | neutral and clear for any new dataset |
 
 **Angklung** (Indonesian bamboo, the lead in nightlights): each note is two tubes an octave apart, shaken as a quick fading rattle. It can be switched off in `presets/nightlights.js` (`const ANGKLUNG = true` at the top) or at runtime with `setSwitch('angklung', false)`.
 
@@ -154,13 +163,13 @@ Follows the "Ideas for sound" column of the data contract, with per-preset chang
 
 | Preset | Sound (real data) | Differences from the default mapping |
 |---|---|---|
-| `sst` | the melody climbs from March to its top in August–September and sinks again by March, following the seasons; acoustic: strings, vocal pad, harp; electronic: pads and bells | pitch ← derived `seasons` (northern minus southern mid-latitude ocean, land ignored) |
+| `sst` | the melody climbs from March to its top in August–September and sinks again by March, following the seasons; acoustic: recorded violin and cello, vocal pad, harp; electronic: pads and bells | pitch ← derived `seasons` (northern minus southern mid-latitude ocean, land ignored) |
 | `nightlights` | gets louder, brighter, higher and busier from 2012 to 2023; small dip in 2020, big fill-in in 2022–23; a marker at each new year (acoustic: angklung, harp, marimba bass, a low angklung chord; electronic: bells, a low chime) | note rate and tempo ← brightness; year-marker layer on `motion`; descriptions start with the year |
 | `lightning` | a drum hit for each storm burst, placed where it bursts; a pad or vocal pad that swells each northern summer; quiet start and end (acoustic: hand, frame and log drums; electronic: thunder and crackle) | pan moves instantly (`panRamp` 0.05 s) so each hit lands at its storm |
 | `co2` | a low drone following the globe tour: thicker, louder, brighter and higher over East Asia and the Amazon (with a clashing tension note and the alarm), thin and dark over Africa and the Atlantic; acoustic adds the singing overtone and a heartbeat. Its peak is capped (loudness, brightness, clash and overtone) so the rise stays intense but not harsh | loudness ← density, filter ← value (the globe's brightness is deserts, not CO₂); gentle pan and tempo (camera); descriptions start with the region |
-| `default` | melody, soft pad and a light percussion hit for flashes (acoustic: piano, strings, hand drums; electronic: pluck, pad, knock); used for any other dataset id | none |
+| `default` | melody, soft pad and a light percussion hit for flashes (acoustic: recorded piano and violin, hand drums; electronic: pluck, pad, knock); used for any other dataset id | none |
 
-**Levels.** Each preset has a `trimDb` per mix so all presets and both mixes sound equally loud: about −20 dB RMS (within ±1 dB), measured from recordings of the real data after the drones have faded in. Peaks stay below −1 dBFS, also in recordings: a limiter plus a soft clipper (ceiling −2 dBFS, leaving room for the lossy encoding's overshoot) catch fast attacks. Re-measure after changing instruments or data.
+**Levels.** Each preset has a `trimDb` per mix so all presets and both mixes sound equally loud: about −20 dB RMS (within about ±1 dB), measured from recordings of the real data after the drones have faded in. The recorded strings and piano are set to the same loudness as their synth versions, so the fallback keeps the balance. Peaks stay below −1 dBFS, also in recordings: a limiter plus a soft clipper (ceiling −2 dBFS, leaving room for the lossy encoding's overshoot) catch fast attacks. Re-measure after changing instruments or data.
 
 ## 8. Requests to Person 1 (data)
 

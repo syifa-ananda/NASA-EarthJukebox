@@ -79,7 +79,7 @@ export default {
     filterHz: [400, 3500],
     tremolo: [0, 0.15],
     reverb: { decay: 6, wet: 0.45 },
-    trimDb: { acoustic: -3, electronic: -0.5 },
+    trimDb: { acoustic: -4, electronic: 1 },
   },
 
   mixMapping: {
