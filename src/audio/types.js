@@ -94,28 +94,69 @@
  * @property {number} hitWindow              Seconds over which a frame's hits are spread.
  * @property {{decay: number, wet: number}} reverb
  * @property {number} trimDb                 Whole-preset level trim so presets sound equally loud.
+ *                                          In preset files: a number or { acoustic, electronic }.
+ */
+
+/**
+ * Instrument of a layer (see src/audio/instruments/).
+ * Electronic mix: pluck, bell, pad, drone, thunder, knock, crackle.
+ * Acoustic and world mix: harp, piano (synth soft keys), strings, angklung,
+ * marimba, vocal (wordless vocal pad), handDrums, frameDrum, logDrum, overtone (drone).
+ * @typedef {'pluck'|'bell'|'pad'|'drone'|'thunder'|'knock'|'crackle'|'harp'|'piano'|'strings'|
+ *           'angklung'|'marimba'|'vocal'|'handDrums'|'frameDrum'|'logDrum'|'overtone'} InstrumentKind
  */
 
 /**
  * One instrument layer of a preset.
  * @typedef {object} LayerSpec
- * @property {'pluck'|'bell'|'pad'|'drone'|'thunder'|'crackle'|'knock'} kind  Instrument.
- * @property {'arp'|'chord'|'drone'|'hits'|'marker'} role
+ * @property {InstrumentKind} kind  Instrument.
+ * @property {'arp'|'chord'|'drone'|'hits'|'marker'|'pulse'|'bass'} role
  *   arp:    one chord tone per tick (rate from `rate`/`tempo`).
  *   chord:  the whole chord every `every`.
- *   drone:  held notes that follow pitch; voices fade in with `voices`.
+ *   drone:  held notes that follow pitch; voices fade in with `voices` (kind 'drone' or 'overtone').
  *   hits:   percussion, one hit per flash.
  *   marker: one root note when `field` (normalized) rises past `threshold`.
+ *   pulse:  heartbeat ("lub-dub") every few beats, quicker as `field` rises.
+ *   bass:   low notes on the key's root and fifth (`pattern`), more often as `field` rises.
  * @property {number} volume              Layer volume in dB.
  * @property {number} [octave]            Octave offset from the preset root.
- * @property {string} [noteLength]        arp: note length, e.g. '8n'.
+ * @property {string} [switch]            Name of an on/off switch (preset `switches`, setSwitch()).
+ * @property {string} [noteLength]        arp/marker/hits: note length, e.g. '8n'.
  * @property {string} [every]             chord: how often the chord is played, e.g. '1m'.
- * @property {number} [chance]            chord: chance (0-1) each chord plays.
+ * @property {number} [chance]            chord: chance (0-1) each chord plays; arp: multiplies noteChance.
  * @property {number} [swellDb]           chord: dB the layer drops when `swell` is 0.
+ * @property {string[]} [vowels]          vocal: one or two of 'oo', 'oh', 'aa' (slowly morphing).
  * @property {number[]} [intervals]       drone: semitones above the root, one voice each.
  * @property {number} [tensionInterval]   drone: semitones of the clashing voice.
- * @property {string} [field]             marker: field to watch, e.g. 'motion'.
+ * @property {number} [tensionGain]       drone: level of the clashing voice at full tension (default 0.6).
+ * @property {number[]} [harmonics]       overtone: harmonics the whistle can sing (default [5, 6, 8, 9, 10, 12]).
+ * @property {string} [singField]         overtone: field that raises the singing harmonic (default 'value').
+ * @property {number} [singDb]            overtone: level of the singing harmonic (default 22).
+ * @property {string} [field]             marker/pulse: field to watch, e.g. 'motion'.
  * @property {number} [threshold]         marker: 0-1 level that triggers it.
+ * @property {number[]} [chord]           marker: semitones played together, e.g. [0, 7, 12].
+ * @property {boolean} [onKeyRoot]       marker: on the key's root instead of the melody's current note.
+ * @property {number[]} [pattern]         bass: semitones above the key root, cycling (default [0, 7]).
+ * @property {[number, number]} [beats]   pulse/bass: beats between notes at level 0 and 1, e.g. [4, 1].
+ * @property {number} [minHits]           hits: play only on frames with at least this many hits.
+ * @property {boolean} [once]             hits: one hit per frame instead of one per flash.
+ */
+
+/**
+ * Climate alarm settings of a preset (engine/alarm.js): a slow, low, wordless
+ * wailing voice that fades in when `field` (normalized) reaches `threshold`.
+ * @typedef {object} AlarmConfig
+ * @property {boolean} on            Whether this preset has the alarm.
+ * @property {string} field          Field to watch, e.g. 'value' or a derived field.
+ * @property {number} threshold      0-1 level (of this file's range) where it fades in.
+ * @property {number} [hysteresis]   It turns off below threshold - hysteresis (default 0.05).
+ * @property {number} [fadeIn]       Seconds (default 1.5).
+ * @property {number} [fadeOut]      Seconds (default 3).
+ * @property {number} [volume]       dB (default -5): keep it under the music.
+ * @property {number} [octave]       Pitch: 0 = an octave above the preset root.
+ * @property {string} [words]        describeFrame phrase, e.g. 'alarm: highest carbon dioxide in view'.
+ * @property {string} [legend]       Legend sentence.
+ * @property {string} [description]  Sentence added to soundDescription while the alarm is enabled.
  */
 
 /**
@@ -125,9 +166,13 @@
  * @property {string} id                 Dataset id from public/data/index.json, or 'default'.
  * @property {string} name               Display name.
  * @property {string} soundDescription   Plain-language description of the sound, for screen readers.
+ *                                       In preset files: a string or { acoustic, electronic }.
+ * @property {'acoustic'|'electronic'} [mix]  The instrument mix this preset was resolved for.
  * @property {string} valueLabel         What `value` means, e.g. 'sea surface temperature'.
  * @property {{low: string, high: string}} valueWords  Legend wording, e.g. 'cooler water' / 'warmer water'.
- * @property {string} [legendExtra]      Extra sentence for the audio legend.
+ * @property {string} [legendExtra]      Extra sentence for the audio legend (per mix allowed in preset files).
+ * @property {AlarmConfig} alarm         Climate alarm (off unless the preset turns it on).
+ * @property {Record<string, boolean>} [switches]  Optional layers on/off, e.g. { angklung: true }.
  * @property {string} [legendPan]        Legend sentence about left/right (default: west/east of the map).
  * @property {string} [emptyLabel]       What a grid value of 0 means here, e.g. 'land, where there is no ocean data'.
  * @property {(frame: Frame) => Record<string, number>} [derive]
@@ -144,7 +189,29 @@
  *                                       (0 = ignore, 1 = as is, 3 = exaggerate small values).
  * @property {Sources} sources
  * @property {Mapping} mapping
- * @property {LayerSpec[]} layers
+ * @property {LayerSpec[]} layers      In preset files: { acoustic: LayerSpec[], electronic: LayerSpec[] }.
+ */
+
+/**
+ * A value given once, or per instrument mix.
+ * @template T
+ * @typedef {T | {acoustic: T, electronic: T}} PerMix
+ */
+
+/**
+ * A preset as written in presets/*.js (getPreset() turns it into a Preset for
+ * one mix). Like Preset, but soundDescription, legendExtra, layers and
+ * mapping.trimDb can be given per mix, and every field is optional except
+ * id, name and soundDescription.
+ * @typedef {Omit<Partial<Preset>, 'soundDescription'|'legendExtra'|'layers'|'mapping'|'alarm'> & {
+ *   id: string, name: string,
+ *   soundDescription: PerMix<string>,
+ *   legendExtra?: PerMix<string>,
+ *   layers?: PerMix<LayerSpec[]>,
+ *   alarm?: Partial<AlarmConfig>,
+ *   mapping?: Partial<Omit<Mapping, 'trimDb'>> & {trimDb?: PerMix<number>},
+ *   mixMapping?: {acoustic?: Partial<Mapping>, electronic?: Partial<Mapping>},
+ * }} PresetFile
  */
 
 /**
@@ -167,6 +234,7 @@
 /**
  * Sound parameters computed from one frame (output of mapFrame).
  * @typedef {object} SoundParams
+ * @property {boolean} alarm  The alarm field is in its top zone (always false if the preset has no alarm).
  * @property {'warm'|'cool'} mode
  * @property {string} scaleName
  * @property {number} volumeDb

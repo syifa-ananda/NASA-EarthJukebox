@@ -1,7 +1,7 @@
 // Short plain-language sentences for ARIA live regions and the audio legend.
 // Pure, no Tone.js.
 
-import { sanitizeFrame, withDerived } from './mapping.js';
+import { sanitizeFrame, withDerived, alarmState } from './mapping.js';
 import { normalizeFrame } from './normalize.js';
 import { getScale, quantizeStep } from '../scales.js';
 
@@ -41,8 +41,11 @@ export function panWord(pan) {
  * @param {import('../types.js').Preset} preset
  * @param {Partial<import('../types.js').Frame>} [prev]  Previous frame, for the pitch trend.
  * @param {import('../types.js').Ranges | null} [ranges]  The dataset's ranges (analyzeRanges).
+ * @param {{alarm?: boolean}} [opts]  alarm: whether the climate alarm is sounding for this
+ *   frame (the engine knows its hysteresis); if omitted, the preset's threshold decides.
+ *   Adds e.g. "alarm: highest carbon dioxide in view" at the end.
  */
-export function describeFrame(features, preset, prev, ranges) {
+export function describeFrame(features, preset, prev, ranges, opts = {}) {
   const cfg = preset?.describe ?? {};
   const raw = sanitizeFrame(features);
   const f = normalizeFrame(withDerived(raw, preset), ranges ?? null);
@@ -68,6 +71,9 @@ export function describeFrame(features, preset, prev, ranges) {
   const motionWord = cfg.motionWord === undefined ? 'changing fast' : cfg.motionWord;
   if (motionWord && f.motion > 0.75) parts.push(motionWord);   // top quarter of this dataset's motion
 
+  const alarm = opts.alarm ?? alarmState(f, preset?.alarm);
+  if (alarm && preset?.alarm?.on) parts.push(preset.alarm.words ?? `alarm: very high ${preset.valueLabel ?? 'value'}`);
+
   return parts.join(', ');
 }
 
@@ -83,8 +89,9 @@ function pitchStep(f, preset) {
  * Text version of the audio legend (playLegend), e.g. "Low notes mean cooler
  * water, high notes mean warmer water. ..."
  * @param {import('../types.js').Preset} preset
+ * @param {{alarm?: boolean}} [opts]  alarm: false = the user turned the alarm off (no alarm sentence).
  */
-export function legendText(preset) {
+export function legendText(preset, { alarm = true } = {}) {
   const label = preset?.valueLabel ?? 'value';
   const low = preset?.valueWords?.low ?? `lower ${label}`;
   const high = preset?.valueWords?.high ?? `higher ${label}`;
@@ -93,6 +100,7 @@ export function legendText(preset) {
     preset?.legendPan ?? 'Sounds on the left come from the west of the map, sounds on the right from the east.',
   ];
   if (preset?.legendExtra) parts.push(preset.legendExtra);
+  if (alarm && preset?.alarm?.on && preset.alarm.legend) parts.push(preset.alarm.legend);
   if (preset?.emptyLabel) parts.push(`In explore mode, a soft tick means ${preset.emptyLabel}.`);
   return parts.join(' ');
 }

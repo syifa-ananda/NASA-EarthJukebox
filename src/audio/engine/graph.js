@@ -1,8 +1,9 @@
 // The shared Tone.js signal graph, built once in init() and kept across
 // preset changes. Presets only add/remove their instrument layers.
 //
-//   melodic layers -> layerIn -> filter -> tremolo -> panner -> reverb -> duck -> master -> fader -> headroom -> limiter -> output
+//   melodic layers -> layerIn -> filter -> tremolo -> panner -> musicGate -> reverb -> duck -> master -> fader -> headroom -> limiter -> output
 //   percussion     -> dryIn  -----------------------^  (skips filter + tremolo so hits stay crisp)
+//   climate alarm  ----------------------------------------------------^  (unpanned; musicGate can mute the music under an alarm preview)
 //   probe synth    -> probePanner ----------------------------------------------^  (own pan, no reverb, not ducked)
 //   legend synth   ---------------------------------------------------------------^
 //
@@ -11,8 +12,10 @@
 
 import { Tone } from '../tone.js';   // loaded by init() before anything here runs
 
-const KNEE = 0.5;      // -6 dBFS: below this the signal passes unchanged
-const CEILING = 0.89;  // -1 dBFS: the curve never goes above this
+// Ceiling at -2 dBFS: recordings are lossy-encoded (webm/opus), which adds up
+// to about 1 dB of overshoot on sharp transients, so encoded files stay below -1 dBFS.
+const KNEE = 0.45;     // -7 dBFS: below this the signal passes unchanged
+const CEILING = 0.79;  // -2 dBFS: the curve never goes above this
 
 /** Soft-clip transfer curve (input and output in -1..1). */
 function softClip(x) {
@@ -25,7 +28,7 @@ function softClip(x) {
 export async function createGraph() {
   // Safety net after the limiter: browser limiters let fast attacks (bells,
   // plucks) overshoot. This curve is untouched below -6 dBFS and bends smoothly
-  // so nothing can pass -1 dBFS. The music averages about -20 dB, so it only
+  // so nothing can pass -2 dBFS. The music averages about -20 dB, so it only
   // touches rare spikes.
   const output = new Tone.WaveShaper(softClip, 4096).toDestination();
   output.oversample = '2x';
@@ -36,7 +39,8 @@ export async function createGraph() {
   const duck = new Tone.Gain(1).connect(master);
   const reverb = new Tone.Reverb({ decay: 3.5, wet: 0.3, preDelay: 0.02 }).connect(duck);
   // channelCount 2: the tremolo outputs stereo; a mono panner would cost 3 dB at centre.
-  const panner = new Tone.Panner({ pan: 0, channelCount: 2 }).connect(reverb);
+  const musicGate = new Tone.Gain(1).connect(reverb);   // previewAlarm() mutes the music here
+  const panner = new Tone.Panner({ pan: 0, channelCount: 2 }).connect(musicGate);
   // Full-depth tremolo mixed in with `wet` (0 = untouched signal). At depth 0 a
   // tremolo still halves the level, so the amount is set via wet instead.
   const tremolo = new Tone.Tremolo({ frequency: 4, depth: 1, spread: 0, wet: 0 }).connect(panner).start();
@@ -66,10 +70,10 @@ export async function createGraph() {
 
   await reverb.ready;   // the reverb impulse is rendered asynchronously
 
-  const nodes = [legendSynth, emptySynth, probeSynth, probePanner, dryIn, layerIn, filter, tremolo, panner, reverb, duck,
+  const nodes = [legendSynth, emptySynth, probeSynth, probePanner, dryIn, layerIn, filter, tremolo, panner, musicGate, reverb, duck,
     master, fader, headroom, limiter, output];
   return {
-    layerIn, dryIn, filter, tremolo, panner, reverb, duck, master, fader, limiter, output,
+    layerIn, dryIn, filter, tremolo, panner, musicGate, reverb, duck, master, fader, limiter, output,
     probePanner, probeSynth, emptySynth, legendSynth,
     dispose() {
       nodes.forEach((n) => n.dispose());

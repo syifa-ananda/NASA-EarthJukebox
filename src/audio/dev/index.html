@@ -55,9 +55,21 @@
       <label for="preset">Preset</label>
       <select id="preset"></select>
     </div>
+    <div class="row">
+      <label for="mix">Instrument mix</label>
+      <select id="mix">
+        <option value="acoustic">Acoustic and world</option>
+        <option value="electronic">Electronic</option>
+      </select>
+      <label><input id="alarm" type="checkbox" checked> Climate alarm</label>
+      <span id="switches" class="row"></span>
+    </div>
+    <p id="alarm-info" class="muted"></p>
     <p id="sound-description"></p>
     <div class="row">
       <button id="legend" type="button">Play legend</button>
+      <button id="alarm-preview" type="button">Preview alarm (10 s)</button>
+      <span id="alarm-state" class="muted"></span>
     </div>
     <p id="legend-out" aria-live="polite"></p>
   </section>
