@@ -10,6 +10,7 @@ const expLerp = ([a, b], t) => a * (b / a) ** t;
 const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 
 const MODE_HYSTERESIS = 0.05;   // stops the key flipping back and forth on noisy frames
+const ALARM_HYSTERESIS = 0.05;  // default: the alarm turns off 0.05 below its threshold
 
 const CONTRACT_KEYS = new Set(['t', 'brightness', 'warmth', 'density', 'pan', 'motion', 'flashes', 'value', 'grid']);
 
@@ -55,14 +56,27 @@ function levelsOf(f) {
 }
 
 /**
+ * True when the preset's alarm field is in its top zone: on at `threshold`,
+ * off again only below `threshold - hysteresis`, so it doesn't flicker.
+ * Always false when the preset's alarm is off.
+ */
+export function alarmState(f, alarm, wasOn = false) {
+  if (!alarm?.on) return false;
+  const v = clamp(num(f[alarm.field ?? 'value'], 0), 0, 1);
+  return wasOn ? v >= alarm.threshold - (alarm.hysteresis ?? ALARM_HYSTERESIS) : v >= alarm.threshold;
+}
+
+/**
  * Compute sound parameters for one frame.
  * @param {Partial<import('../types.js').Frame>} frame
  * @param {import('../types.js').Preset} preset   A resolved preset (getPreset()).
- * @param {'warm'|'cool'} [prevMode]               Mode of the previous frame, for hysteresis.
+ * @param {{mode?: 'warm'|'cool', alarm?: boolean} | 'warm' | 'cool'} [prev]
+ *   The previous frame's mode and alarm state, for hysteresis (or just its mode).
  * @returns {import('../types.js').SoundParams}
  */
-export function mapFrame(frame, preset, prevMode) {
+export function mapFrame(frame, preset, prev) {
   const f = sanitizeFrame(frame);
+  const prevMode = typeof prev === 'string' ? prev : prev?.mode;
   const { weights: w, sources: src, mapping: m } = preset;
 
   // Weighted 0-1 value of the field that drives sound parameter `param`.
@@ -98,6 +112,7 @@ export function mapFrame(frame, preset, prevMode) {
 
   const loud = drive('loudness');
   return {
+    alarm: alarmState(f, preset.alarm, typeof prev === 'object' && prev ? prev.alarm : false),
     mode,
     scaleName,
     volumeDb: lerp(m.volumeDb, loud),

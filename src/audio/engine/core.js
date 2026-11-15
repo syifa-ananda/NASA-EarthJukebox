@@ -4,10 +4,11 @@
 import { Tone, unlockAudio, loadTone } from '../tone.js';
 import { createGraph } from './graph.js';
 import { createLayer } from './layers.js';
+import { createAlarm, previewAlarm as previewAlarmVoice } from './alarm.js';
 import { mapFrame, sanitizeFrame, withDerived } from './mapping.js';
 import { analyzeRanges as analyzeFile, normalizeFrame, normalizeValue } from './normalize.js';
 import { describeFrame as describeText, legendText, levelWord } from './describe.js';
-import { getPreset } from '../presets/index.js';
+import { getPreset as resolvePreset, listPresets as listAll, MIXES, DEFAULT_MIX } from '../presets/index.js';
 import { getScale, quantizeStep, stepToMidi, midiToHz, midiToName } from '../scales.js';
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -17,9 +18,14 @@ const state = {
   initPromise: null,
   ready: false,
   graph: null,
-  preset: getPreset('default'),
-  builtPreset: null,        // preset whose layers currently exist
+  mix: DEFAULT_MIX,         // 'acoustic' | 'electronic'
+  alarmEnabled: true,       // user setting: false silences the climate alarm everywhere
+  switchOverrides: {},      // layer switches set with setSwitch(), e.g. { angklung: false }
+  preset: resolvePreset('default'),
+  builtKey: null,           // preset id + mix + switches whose layers currently exist
   layers: [],
+  alarm: null,              // climate alarm of the current preset (engine/alarm.js), or null
+  alarmOn: false,           // data is in the alarm zone (with hysteresis)
   tickLoop: null,
   subdivision: null,
   ranges: null,             // Ranges of the loaded file, or null = no normalization
@@ -34,6 +40,7 @@ const state = {
   lastProbe: 0,
   lastLegend: 0,
   recorder: null,
+  stopPreview: null,        // stops a running previewAlarm()
 };
 
 /** True once init() has finished. */
@@ -44,6 +51,36 @@ export const isPlaying = () => state.playing;
 export const currentPreset = () => state.preset;
 /** Ranges used for normalization, or null. */
 export const getRanges = () => state.ranges;
+/** Current instrument mix: 'acoustic' or 'electronic'. */
+export const getMix = () => state.mix;
+/** False if the user turned the climate alarm off (setAlarmEnabled). */
+export const isAlarmEnabled = () => state.alarmEnabled;
+/** True while the climate alarm is sounding (or fading in). */
+export const isAlarmActive = () => Boolean(state.alarm?.active);
+
+/** Preset for a dataset id with the current mix and alarm setting. */
+const resolve = (id) => resolvePreset(id, { mix: state.mix, alarm: state.alarmEnabled });
+
+/**
+ * Full preset for a dataset id, for the current instrument mix (unknown ids
+ * get the default preset).
+ * @param {string} id
+ * @returns {import('../types.js').Preset}
+ */
+export const getPreset = (id) => resolve(id);
+
+/** Short list for menus: id, name and soundDescription (for the current mix). */
+export const listPresets = () => listAll({ mix: state.mix, alarm: state.alarmEnabled });
+
+/**
+ * Optional layers of the current preset and mix, and whether each is on,
+ * e.g. { angklung: true } for nightlights in the acoustic mix ({} if none).
+ */
+export function getSwitches() {
+  const out = {};
+  for (const name of switchNames(state.preset)) out[name] = switchOn(name);
+  return out;
+}
 
 /**
  * Start audio. MUST be called from a user gesture (click / key press):
@@ -76,21 +113,53 @@ export function init() {
  * @returns {Promise<import('../types.js').Preset>}
  */
 export async function loadPreset(datasetId) {
-  const preset = getPreset(datasetId);
+  const preset = resolve(datasetId);
+  if (preset.id !== state.preset.id) {
+    state.mode = undefined;
+    state.alarmOn = false;
+  }
   state.preset = preset;
-  state.mode = undefined;
-  if (state.initPromise) await state.initPromise.catch(() => {});
-  if (!state.ready || state.builtPreset?.id === preset.id) return preset;
-
-  const token = ++state.loadToken;
-  state.graph.fader.gain.rampTo(0, 0.08);   // quick fade so the swap doesn't click
-  await wait(100);
-  if (token !== state.loadToken || !state.ready) return preset;   // a newer call took over
-
-  teardownLayers();
-  buildPreset(state.preset);
-  state.graph.fader.gain.rampTo(1, 0.3);
+  await rebuild();
   return preset;
+}
+
+/**
+ * Switch the instrument mix for every preset: 'acoustic' (acoustic and world
+ * instruments, the default) or 'electronic' (synth sounds). The current
+ * preset is rebuilt with a short fade. Can be called before init().
+ * @param {'acoustic'|'electronic'} mix
+ * @returns {Promise<void>}
+ */
+export async function setMix(mix) {
+  if (!MIXES.includes(mix)) throw new Error(`Unknown mix "${mix}" (use ${MIXES.join(' or ')})`);
+  state.mix = mix;
+  state.preset = resolve(state.preset.id);
+  await rebuild();
+}
+
+/**
+ * Turn an optional layer on or off for every preset that has it, e.g.
+ * setSwitch('angklung', false). `null` goes back to the preset's own setting.
+ * See `switches` in the preset files. Rebuilds the current preset if needed.
+ * @param {string} name
+ * @param {boolean | null} on
+ * @returns {Promise<void>}
+ */
+export async function setSwitch(name, on) {
+  if (on === null || on === undefined) delete state.switchOverrides[name];
+  else state.switchOverrides[name] = Boolean(on);
+  await rebuild();
+}
+
+/**
+ * Climate alarm on or off for every preset (a user setting; presets without
+ * an alarm are not affected). Turning it off fades a sounding alarm out.
+ * @param {boolean} on
+ */
+export function setAlarmEnabled(on) {
+  state.alarmEnabled = Boolean(on);
+  state.preset = resolve(state.preset.id);   // soundDescription mentions the alarm only when on
+  state.alarm?.setEnabled(state.alarmEnabled);
 }
 
 /**
@@ -100,7 +169,7 @@ export async function loadPreset(datasetId) {
  * @returns {import('../types.js').Ranges}
  */
 export function analyzeRanges(file) {
-  const preset = getPreset(file?.dataset);
+  const preset = resolve(file?.dataset);
   return analyzeFile(file, { derive: preset.derive, minSpan: preset.normalize?.minSpan });
 }
 
@@ -223,7 +292,7 @@ export function probe(x, y) {
  */
 export function playLegend({ duration = 3 } = {}) {
   const preset = state.preset;
-  const text = legendText(preset);
+  const text = legendText(preset, { alarm: state.alarmEnabled });
   if (!state.ready) return { text, duration: 0, sounded: false };
 
   const g = state.graph;
@@ -242,6 +311,35 @@ export function playLegend({ duration = 3 } = {}) {
 }
 
 /**
+ * Play the current preset's climate alarm on its own for about `seconds`
+ * (the music is muted meanwhile, and comes back afterwards), so listeners can
+ * learn what it sounds like. Plays even if the alarm is turned off with
+ * setAlarmEnabled(false); does nothing for presets without an alarm.
+ * Returns a text version for screen readers.
+ * @returns {{text: string, seconds: number, sounded: boolean}}
+ */
+export function previewAlarm({ seconds = 10 } = {}) {
+  const preset = state.preset;
+  if (!preset.alarm?.on) return { text: 'This dataset has no climate alarm.', seconds: 0, sounded: false };
+  const text = `Climate alarm preview. ${preset.alarm.legend}`;
+  if (!state.ready) return { text, seconds: 0, sounded: false };
+
+  const g = state.graph;
+  state.stopPreview?.();
+  const now = Tone.now();
+  const start = now + 0.4;
+  const end = start + seconds;
+  const gate = g.musicGate.gain;
+  gate.cancelScheduledValues(now);
+  gate.setValueAtTime(gate.getValueAtTime(now), now);
+  gate.linearRampToValueAtTime(0, start);         // music steps out...
+  gate.setValueAtTime(0, end);
+  gate.linearRampToValueAtTime(1, end + 1);       // ...and back in afterwards
+  state.stopPreview = previewAlarmVoice(g, preset, seconds, start);
+  return { text, seconds, sounded: true };
+}
+
+/**
  * Short sentence for an ARIA live region, e.g.
  * "high water temperature, rising pitch, panned left". Level words and the
  * pitch trend are relative to the loaded dataset's ranges (what you hear);
@@ -251,9 +349,12 @@ export function playLegend({ duration = 3 } = {}) {
  * @param {Partial<import('../types.js').Frame>} [prev]     Previous frame; defaults to the one before `features`.
  */
 export function describeFrame(features, preset = state.preset, prev) {
-  const p = typeof preset === 'string' ? getPreset(preset) : preset ?? state.preset;
+  const p = typeof preset === 'string' ? resolve(preset) : preset ?? state.preset;
   const before = prev ?? (features === state.lastInput ? state.prevFrame : state.frame);
-  return describeText(features, p, before ?? undefined, state.ranges);
+  // Alarm phrase only when it is (or would be) heard: same hysteresis as the sound.
+  const latest = features === state.lastInput && p.id === state.preset.id;
+  const alarm = !state.alarmEnabled ? false : latest ? state.alarmOn : undefined;
+  return describeText(features, p, before ?? undefined, state.ranges, { alarm });
 }
 
 /** True if this browser can record (MediaRecorder). */
@@ -294,6 +395,8 @@ export function dispose() {
     state.recorder = null;
   }
   pause();
+  state.stopPreview?.();
+  state.stopPreview = null;
   teardownLayers();
   state.graph?.dispose();
   if (Tone) {
@@ -302,8 +405,8 @@ export function dispose() {
     transport.cancel();
   }
   Object.assign(state, {
-    initPromise: null, ready: false, graph: null, builtPreset: null,
-    params: null, mode: undefined, frame: null, prevFrame: null, lastInput: null,
+    initPromise: null, ready: false, graph: null, builtKey: null, alarm: null,
+    params: null, mode: undefined, alarmOn: false, frame: null, prevFrame: null, lastInput: null,
   });
 }
 
@@ -320,8 +423,9 @@ function probeMidi(v) {
 /** Map the latest frame (normalized) with the current preset and apply it. */
 function remap(ramp) {
   const full = withDerived(state.frame ?? sanitizeFrame({}), state.preset);
-  const p = mapFrame(normalizeFrame(full, state.ranges), state.preset, state.mode);
+  const p = mapFrame(normalizeFrame(full, state.ranges), state.preset, { mode: state.mode, alarm: state.alarmOn });
   state.mode = p.mode;
+  state.alarmOn = p.alarm;
   state.params = p;
   if (state.ready && state.layers.length) applyParams(p, ramp);
   return p;
@@ -333,13 +437,18 @@ function buildPreset(preset) {
   if (g.reverb.decay !== reverb.decay) g.reverb.decay = reverb.decay;   // re-renders the impulse
   g.reverb.wet.rampTo(reverb.wet, 0.5);
 
-  state.layers = preset.layers.map((spec) => createLayer(spec, g, preset, () => state.params));
+  const specs = preset.layers.filter((spec) => !spec.switch || switchOn(spec.switch));
+  state.layers = specs.map((spec) => createLayer(spec, g, preset, () => state.params));
+  if (preset.alarm?.on) {
+    state.alarm = createAlarm(g, preset);
+    state.alarm.setEnabled(state.alarmEnabled);
+    state.layers.push(state.alarm);
+  }
   state.subdivision = preset.mapping.subdivisions[0];
   state.tickLoop = new Tone.Loop(onTick, state.subdivision).start(0);
-  state.builtPreset = preset;
+  state.builtKey = buildKey(preset);
 
   // Re-map the latest frame with the new preset so the sound is right at once.
-  state.mode = undefined;
   remap(0.05);
   if (state.playing) {
     const now = Tone.now();
@@ -355,7 +464,39 @@ function teardownLayers() {
     l.dispose();
   });
   state.layers = [];
-  state.builtPreset = null;
+  state.alarm = null;
+  state.builtKey = null;
+}
+
+/** Switch names used by the preset's layers in its current mix. */
+function switchNames(preset) {
+  return [...new Set(preset.layers.map((spec) => spec.switch).filter(Boolean))];
+}
+
+/** Whether layer switch `name` is on: setSwitch() override, else the preset's setting. */
+function switchOn(name) {
+  return state.switchOverrides[name] ?? state.preset.switches?.[name] ?? true;
+}
+
+/** Identifies what is built: rebuild only when the preset, mix or a switch changed. */
+function buildKey(preset) {
+  const switches = switchNames(preset).map((n) => `${n}=${switchOn(n)}`);
+  return [preset.id, preset.mix, ...switches].join('|');
+}
+
+/** Rebuild the current preset's instruments if needed, with a quick fade so the swap doesn't click. */
+async function rebuild() {
+  if (state.initPromise) await state.initPromise.catch(() => {});
+  if (!state.ready || state.builtKey === buildKey(state.preset)) return;
+
+  const token = ++state.loadToken;
+  state.graph.fader.gain.rampTo(0, 0.08);
+  await wait(100);
+  if (token !== state.loadToken || !state.ready) return;   // a newer call took over
+
+  teardownLayers();
+  buildPreset(state.preset);
+  state.graph.fader.gain.rampTo(1, 0.3);
 }
 
 /** Called on every beat subdivision while the transport runs. */
@@ -375,12 +516,29 @@ function applyParams(p, ramp) {
   g.panner.pan.rampTo(p.pan, state.preset.mapping.panRamp ?? ramp);
   g.tremolo.wet.rampTo(p.tremoloDepth, ramp);
   g.tremolo.frequency.rampTo((p.bpm / 60) * 2, ramp);   // tremolo pulses in 8th notes
-  Tone.getTransport().bpm.rampTo(p.bpm, ramp);
+  rampTempo(p.bpm, ramp);
   if (state.tickLoop && p.subdivision !== state.subdivision) {
     state.tickLoop.interval = p.subdivision;
     state.subdivision = p.subdivision;
   }
   state.layers.forEach((l) => l.update?.(p, ramp));
+}
+
+/**
+ * Ramp the transport tempo. Not bpm.rampTo(): on the transport's tick-counting
+ * tempo, rampTo's cancel-and-hold adds events without tick counts, and
+ * interrupting a long ramp (e.g. co2's 2.5 s) then made the clock throw
+ * "Cannot read properties of undefined (reading 'time')". Cancel, hold the
+ * current value and ramp linearly instead; tiny changes are skipped.
+ */
+function rampTempo(target, ramp) {
+  const bpm = Tone.getTransport().bpm;
+  const now = Tone.now();
+  const current = bpm.getValueAtTime(now);
+  if (Math.abs(target - current) < 0.25) return;
+  bpm.cancelScheduledValues(now);
+  bpm.setValueAtTime(current, now);
+  bpm.linearRampToValueAtTime(target, now + Math.max(0.05, ramp));
 }
 
 function applyVolume(ramp) {

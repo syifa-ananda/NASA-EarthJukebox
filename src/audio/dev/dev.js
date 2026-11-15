@@ -24,6 +24,7 @@ const $ = (id) => document.getElementById(id);
 const ui = {
   play: $('play'), volume: $('volume'), volumeOut: $('volume-out'), preset: $('preset'),
   soundDesc: $('sound-description'), legend: $('legend'), legendOut: $('legend-out'),
+  mix: $('mix'), alarm: $('alarm'), alarmPreview: $('alarm-preview'), alarmInfo: $('alarm-info'), alarmState: $('alarm-state'), switches: $('switches'),
   dataset: $('dataset'), mock: $('mock'), speed: $('speed'), frame: $('frame'), frameOut: $('frame-out'),
   mockStatus: $('mock-status'), normalize: $('normalize'), ranges: $('ranges'),
   video: $('video'), videoFile: $('video-file'), videoStatus: $('video-status'), sync: $('sync'),
@@ -109,6 +110,7 @@ function send(frameSeconds) {
 function showFrame(params) {
   ui.params.textContent = JSON.stringify(params, (_, v) => (typeof v === 'number' ? +v.toFixed(3) : v), 2);
   draw();
+  showAlarmState();
   ui.describe.dataset.latest = audio.describeFrame(frame);
   announceLatest();
 }
@@ -137,6 +139,34 @@ function announceLatest() {
 function showSoundDescription() {
   const p = audio.listPresets().find((x) => x.id === ui.preset.value);
   ui.soundDesc.textContent = p ? p.soundDescription : '';
+  showPresetOptions();
+}
+
+/** Alarm settings and layer switches (e.g. angklung) of the current preset. */
+function showPresetOptions() {
+  const preset = audio.currentPreset();
+  const a = preset.alarm;
+  ui.alarmPreview.disabled = !a?.on;
+  ui.alarmInfo.textContent = a?.on
+    ? `This preset's alarm fades in when ${a.field} reaches ${a.threshold} of this file's range ` +
+      `(off again below ${(a.threshold - (a.hysteresis ?? 0.05)).toFixed(2)}).`
+    : 'This preset has no climate alarm.';
+  ui.switches.replaceChildren();
+  for (const [name, on] of Object.entries(audio.getSwitches())) {
+    const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: on });
+    box.addEventListener('change', async () => {
+      await audio.setSwitch(name, box.checked);
+      send();
+    });
+    const label = document.createElement('label');
+    label.append(box, ` ${name[0].toUpperCase()}${name.slice(1)} (${preset.mix} mix)`);
+    ui.switches.append(label);
+  }
+  showAlarmState();
+}
+
+function showAlarmState() {
+  ui.alarmState.textContent = audio.isAlarmActive() ? 'Alarm sounding' : '';
 }
 
 function setPlayButton() {
@@ -326,7 +356,7 @@ function extensionFor(type) {
 }
 
 function setRecordingUi(on) {
-  for (const el of [ui.record, ui.dataset, ui.preset, ui.mock, ui.sync, ui.frame, ui.speed, ui.play]) el.disabled = on;
+  for (const el of [ui.record, ui.dataset, ui.preset, ui.mix, ui.mock, ui.sync, ui.frame, ui.speed, ui.play]) el.disabled = on;
   ui.recordCancel.hidden = !on;
 }
 
@@ -374,7 +404,8 @@ async function recordFullPass() {
       return;
     }
     const mock = entries[data.dataset]?.mock;
-    const name = `${data.dataset}${mock ? '-mock' : ''}.${extensionFor(blob.type)}`;
+    const mix = audio.getMix() === 'acoustic' ? '' : `-${audio.getMix()}`;   // default mix = plain <id>
+    const name = `${data.dataset}${mix}${mock ? '-mock' : ''}.${extensionFor(blob.type)}`;
     if (ui.recordLink.href) URL.revokeObjectURL(ui.recordLink.href);
     Object.assign(ui.recordLink, { href: URL.createObjectURL(blob), download: name, textContent: `Download ${name} again` });
     ui.recordLink.hidden = false;
@@ -469,6 +500,20 @@ ui.preset.addEventListener('change', async () => {
   send();
 });
 ui.legend.addEventListener('click', playLegend);
+ui.alarmPreview.addEventListener('click', async () => {
+  if (!audio.isReady()) await audio.init();   // the click is the user gesture
+  ui.legendOut.textContent = audio.previewAlarm({ seconds: 10 }).text;
+});
+ui.mix.addEventListener('change', async () => {
+  await audio.setMix(ui.mix.value);
+  showSoundDescription();
+  send();
+});
+ui.alarm.addEventListener('change', () => {
+  audio.setAlarmEnabled(ui.alarm.checked);
+  showSoundDescription();
+  send();
+});
 ui.dataset.addEventListener('change', selectDataset);
 ui.mock.addEventListener('click', toggleMock);
 ui.speed.addEventListener('change', () => {
@@ -496,6 +541,8 @@ ui.announce.addEventListener('change', () => {
 });
 
 audio.setVolume(ui.volume.value / 100);
+ui.mix.value = audio.getMix();
+ui.alarm.checked = audio.isAlarmEnabled();
 buildSliders();
 syncSliders();
 buildPresetMenu();
