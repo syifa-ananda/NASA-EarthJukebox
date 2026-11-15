@@ -47,7 +47,8 @@ export function createPlayer({
   narration = NO_NARRATION,
   onPlayingChange = () => {},
   onUserSeek = () => {}, // the user changed frame (timeline, J / L)
-  onExplore = () => {}, // the "Explore map" button
+  onExplore = () => {}, // the "Explore" button
+  onLegend = () => {}, // the "Audio legend" button
 }) {
   const s = {
     record: null,
@@ -88,6 +89,7 @@ export function createPlayer({
       if (s.video) s.video.loop = on;
     },
     onExplore: () => onExplore(),
+    onLegend: () => onLegend(),
   });
 
   audio.setVolume(DEFAULT_VOLUME / 100);

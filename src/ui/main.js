@@ -32,6 +32,7 @@ let picker = null;
 let announceTimer = null;
 
 // ---------- URL hash: #record=<id>&narration=<level>[&keys=off] ----------
+// Any other parameter (e.g. an old theme=…) is ignored and dropped on the next write.
 
 function readHash() {
   const params = new URLSearchParams(location.hash.slice(1));
@@ -68,6 +69,7 @@ const player = createPlayer({
   onPlayingChange: (playing) => document.body.classList.toggle('is-playing', playing),
   onUserSeek: (index) => explore.onFrameChange(index),
   onExplore: () => explore.focusMap(),
+  onLegend: () => soundSettings.playLegend(),
 });
 
 const explore = createExplore({

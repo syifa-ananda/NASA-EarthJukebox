@@ -1,6 +1,8 @@
-// "Sound settings" group in the player panel: narration level, Play legend,
-// and room for more switches (e.g. Person 2's upcoming climate alarm: call
-// addSwitch() once its API is known).
+// "Sound settings" group in the player panel: narration level, the text of the
+// audio legend once it has played, and room for more switches (e.g. Person 2's
+// upcoming climate alarm: call addSwitch() once its API is known).
+// The "Audio legend" button itself is in the control bar (transport.js) and
+// calls playLegend() here, as does the G shortcut.
 
 import { h } from './dom.js';
 import * as audio from './adapters/audio.js';
@@ -13,12 +15,6 @@ import { renderNarrationControls } from './narration-controls.js';
  */
 export function createSoundSettings(container, { level, onNarrationChange }) {
   const narrationSlot = h('div', { class: 'setting-narration' });
-  const legendBtn = h(
-    'button',
-    { type: 'button', id: 'legend-btn', class: 'btn-secondary', 'aria-disabled': 'true', 'aria-describedby': 'legend-help' },
-    'Play legend',
-  );
-  const legendHelp = h('p', { id: 'legend-help', class: 'setting-help' }, 'Choose a record to hear its legend.');
   // Shows the legend text while / after it plays. Not a live region: the
   // narrator speaks it once.
   const legendText = h('p', { id: 'legend-text', class: 'legend-text', hidden: true });
@@ -30,7 +26,6 @@ export function createSoundSettings(container, { level, onNarrationChange }) {
       { class: 'sound-settings', role: 'group', 'aria-labelledby': 'sound-settings-heading' },
       h('h3', { id: 'sound-settings-heading' }, 'Sound settings'),
       narrationSlot,
-      h('div', { class: 'setting-row' }, legendBtn, legendHelp),
       legendText,
       switches,
     ),
@@ -42,19 +37,13 @@ export function createSoundSettings(container, { level, onNarrationChange }) {
 
   function setEnabled(enabled) {
     hasData = enabled;
-    legendBtn.setAttribute('aria-disabled', String(!enabled));
-    if (enabled) {
-      legendBtn.removeAttribute('aria-describedby');
-      legendHelp.textContent = 'Plays the notes from lowest to highest value, about 3 seconds. Shortcut: G.';
-    } else {
-      legendBtn.setAttribute('aria-describedby', 'legend-help');
-      legendHelp.textContent = 'Choose a record to hear its legend.';
+    if (!enabled) {
       legendText.hidden = true;
       legendText.textContent = '';
     }
   }
 
-  /** Button or G. Starts audio inside the gesture, like Play. */
+  /** Audio legend button or G. Starts audio inside the gesture, like Play. */
   function playLegend() {
     if (!hasData) {
       announce('Choose a record first, then play its legend.', { force: true });
@@ -72,7 +61,6 @@ export function createSoundSettings(container, { level, onNarrationChange }) {
       });
   }
 
-  legendBtn.addEventListener('click', playLegend);
   setEnabled(false);
 
   return {

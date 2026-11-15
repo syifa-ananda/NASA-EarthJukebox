@@ -4,6 +4,26 @@
 
 import { h } from './dom.js';
 import { statusLabel } from './config/datasets.js';
+import { icon } from './icons.js';
+
+/**
+ * Decorative crop of Person 1's check image: just the video part of
+ * docs/images/<id>/frame_middle.png. The art box has the same shape as that
+ * part, so background-size / -position in % crop it exactly.
+ */
+function artStyle(card) {
+  if (!card) return null;
+  const [imgW, imgH] = card.size;
+  const [fx, fy, fw, fh] = card.frame;
+  return {
+    // Absolute URL: a url() inside a CSS variable resolves against the
+    // stylesheet (src/ui/), not the page.
+    '--art-image': `url("${new URL(card.image, document.baseURI).href}")`,
+    '--art-size': `${((imgW / fw) * 100).toFixed(2)}% auto`,
+    '--art-pos': `${((fx / (imgW - fw)) * 100).toFixed(2)}% ${((fy / (imgH - fh)) * 100).toFixed(2)}%`,
+    '--art-aspect': `${fw} / ${fh}`,
+  };
+}
 
 function recordItem(record) {
   const base = `record-${record.id}`;
@@ -20,10 +40,12 @@ function recordItem(record) {
     'aria-describedby': `${base}-hint`,
   });
 
+  const art = artStyle(record.card);
   const card = h(
     'label',
-    { for: base, class: 'record-card', '--record-accent': record.accent },
-    h('span', { class: 'record-disc', 'aria-hidden': 'true' }),
+    { for: base, class: `record-card${art ? ' has-art' : ''}`, '--record-accent': record.accent },
+    art && h('span', { class: 'record-art', 'aria-hidden': 'true', style: art }),
+    icon(record.icon, 'record-icon'),
     h(
       'span',
       { class: 'record-text' },
@@ -40,11 +62,18 @@ function recordItem(record) {
           ),
       ),
       h('span', { class: 'record-hint', id: `${base}-hint` }, record.soundHint),
+      // Visual state only: screen readers already hear "selected" from the
+      // radio and Play / Pause from the Play button.
+      h(
+        'span',
+        { class: 'record-state', 'aria-hidden': 'true' },
+        h('span', { class: 'state-selected' }, 'Selected'),
+        h('span', { class: 'state-playing' }, 'Now playing'),
+      ),
     ),
-    h('span', { class: 'record-check', 'aria-hidden': 'true' }, '✓'),
   );
 
-  return h('div', { class: 'record' }, input, card);
+  return h('div', { class: `record record-${record.id}` }, input, card);
 }
 
 /**
@@ -56,7 +85,8 @@ export function renderRecordList(container, records, { onSelect }) {
   const fieldset = h(
     'fieldset',
     { class: 'record-list' },
-    h('legend', {}, 'Choose a record'),
+    // The visible heading says "Select a dataset"; the group name stays short.
+    h('legend', { class: 'visually-hidden' }, 'Datasets'),
     h('div', { class: 'record-items' }, records.map(recordItem)),
   );
   // Plain text, not a link or control: says the list can grow.

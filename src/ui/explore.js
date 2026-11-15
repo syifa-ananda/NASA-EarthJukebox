@@ -66,7 +66,7 @@ export function createExplore({ mapEl, cursorEl, readoutEl, player, narration })
     pendingHover: null,
   };
 
-  const IDLE_READOUT = 'Explore the picture: press E, use the Explore map button, or point at it.';
+  const IDLE_READOUT = 'Explore the picture: press E, use the Explore button, or point at it.';
 
   // ---------- helpers ----------
 

@@ -13,9 +13,12 @@
 //   shortTitle   compact title for the record card
 //   title        fallback full title (index.json's title wins)
 //   soundHint    one line on how it sounds
-//   accent       decorative colour for the record label. Chosen to reach at
-//                least 3:1 against every panel background in both themes.
+//   accent       decorative tint for the record card's background gradient.
 //                It is never used for text and never carries meaning alone.
+//   icon         card icon from icons.js: 'waves' | 'city' | 'bolt' | 'co2'
+//   card         decorative card image, cropped with CSS from Person 1's check
+//                image: { image, size: [w, h], frame: [x, y, w, h] } where
+//                frame is the video part of docs/images/<id>/frame_middle.png
 //   legend       { stops: [low → high colours], low, high } for the heatmap
 //                fallback and the legend bar; null if the colour key is unknown
 //   summary      { subject, high, preposition? } wording for "where is it highest"
@@ -52,6 +55,8 @@
 export const RECORDS = [
   {
     id: 'sst',
+    icon: 'waves',
+    card: { image: 'docs/images/sst/frame_middle.png', size: [1072, 354], frame: [16, 58, 512, 256] },
     shortTitle: 'Sea Surface Temperature',
     title: 'Global Sea Surface Currents and Temperature',
     soundHint: 'Flowing pads whose melody follows the seasons',
@@ -93,6 +98,8 @@ export const RECORDS = [
   },
   {
     id: 'nightlights',
+    icon: 'city',
+    card: { image: 'docs/images/nightlights/frame_middle.png', size: [1016, 354], frame: [16, 58, 456, 256] },
     shortTitle: 'Night Lights',
     title: 'Change in Night Lights 2012–2023',
     soundHint: 'Bells that multiply year by year as cities grow',
@@ -120,6 +127,8 @@ export const RECORDS = [
   },
   {
     id: 'lightning',
+    icon: 'bolt',
+    card: { image: 'docs/images/lightning/frame_middle.png', size: [1072, 354], frame: [16, 58, 512, 256] },
     shortTitle: 'Lightning from the ISS',
     title: 'Lightning Events Detected from the ISS 2017–2023',
     soundHint: 'A thunder thump for every storm burst',
@@ -152,6 +161,8 @@ export const RECORDS = [
   },
   {
     id: 'co2',
+    icon: 'co2',
+    card: { image: 'docs/images/co2/frame_middle.png', size: [1016, 354], frame: [16, 58, 456, 256] },
     shortTitle: 'Carbon Dioxide',
     title: 'DYAMOND Global Carbon Dioxide',
     soundHint: 'A low drone that thickens over East Asia and the Amazon',
@@ -207,6 +218,8 @@ export function mergeRecords(indexEntries = []) {
       credit: entry.credit ?? 'NASA/SVS',
       soundHint: cfg.soundHint,
       accent: cfg.accent ?? DEFAULT_ACCENT,
+      icon: cfg.icon ?? 'wave',
+      card: cfg.card ?? null,
       legend: cfg.legend ?? null,
       summary: cfg.summary ?? { subject: cfg.shortTitle.toLowerCase(), high: 'Highest values' },
       gridKind: cfg.gridKind ?? 'world-map',
@@ -237,6 +250,8 @@ export function mergeRecords(indexEntries = []) {
       credit: entry.credit ?? 'NASA/SVS',
       soundHint: 'NASA data, played as music',
       accent: DEFAULT_ACCENT,
+      icon: 'wave',
+      card: null,
       legend: null,
       summary: { subject: entry.title.toLowerCase(), high: 'Highest values' },
       // Unknown new datasets: describe positions in the picture, never guess places.
